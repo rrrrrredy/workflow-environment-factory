@@ -5,6 +5,8 @@ A source build is not a release. A `v*` tag produces a GitHub Release only after
 ## Fixed inputs
 
 - RunCase Interchange: tag `v0.1.0`.
+- Node.js: 22.23.2 in CI and release jobs.
+- Python: 3.11.16 in CI, release jobs, and the Docker gate image.
 - Codex CLI used by `doctor`: `0.150.0-alpha.8`.
 - Docker gate image: `python:3.11.16-slim-bookworm@sha256:0bee7276f83efd4a1ee05bbbf4281d95ed28e079220a9457f25a93e3f1e3c31b`.
 
