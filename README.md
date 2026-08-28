@@ -4,7 +4,7 @@ Workflow Environment Factory turns your own repository or Issue-to-PR process in
 
 It is not a public benchmark, an environment-outsourcing service, or a dashboard for watching an Agent. The useful output is a task pack you can keep, rerun, inspect, and improve as your repository and workflow change.
 
-> **Release status:** 0.1 technical preview for Windows 11 and Codex. The two product verticals, local UI, plugin, recovery boundaries, and synthetic browser flow are implemented. A real Docker gate and clean-Windows acceptance must still pass before this repository is labeled stable.
+> **Release status:** 0.1 technical preview for Windows 11 and Codex. The two product verticals, local UI, plugin, recovery boundaries, and synthetic browser flow are implemented. A real Docker gate, real authenticated Codex gate, and clean-Windows acceptance must still pass before this repository is labeled stable.
 
 ![Workflow Environment Factory Case matrix with fully synthetic data](docs/images/ui-desktop-case-factory-synthetic.png)
 
@@ -14,11 +14,11 @@ The product has three surfaces:
 
 - **Blueprint** connects a local Git repository or records a local Issue-to-PR demonstration, then confirms the variable, baseline, known-correct revision, immutable container, allowed paths, and completion standard.
 - **Case Factory** creates a base Case and exactly two user-confirmed variants. A Case is runnable only when its baseline fails, correct state passes, and two fresh resets match. Issue-to-PR Cases also prove that the wrong simulator state fails and the programmatic correct state passes.
-- **Runs & Scores** launches Codex in a new isolated Git snapshot and, when needed, a new local Issue/PR database. Task failure, Agent timeout, Agent crash, reset failure, and validator failure remain different outcomes.
+- **Runs & Scores** launches Codex in a new isolated Git snapshot and, when needed, a new local Issue/PR database. Task failure, Agent timeout, Agent crash, environment failure, reset failure, and validator failure remain different outcomes.
 
 Runs & Scores also contains a protocol library: it validates, redacts, and retains imported `agent.run.v1`, `workflow.case.v1`, and `workflow.score.v1` files without silently turning an external document into a runnable local Case.
 
-The Codex plugin contributes one bounded Skill and six MCP tools for reading the active Case and operating the local Issue/PR simulator. It has no tool that changes a validator or score.
+The Codex plugin contributes one bounded Skill and six MCP tools for reading the active Case and operating the local Issue/PR simulator. It has no tool that changes a validator or score. Product-controlled Runs ignore ambient user configuration and register only this same MCP server explicitly; the installed plugin remains the normal user entry point, not an implicit execution dependency.
 
 ## The evidence boundary
 
@@ -45,6 +45,8 @@ Requirements:
 - Git;
 - Codex CLI/Desktop with `codex` on `PATH`;
 - PowerShell 7 recommended.
+
+Install and start the long-lived service from a normal Windows Terminal or PowerShell session, not from inside an existing Codex sandbox. Every real Run performs a no-model workspace-sandbox preflight and stops as `environment_error` rather than falling back to unrestricted execution.
 
 Download `workflow-environment-factory-0.1.0-windows-x64.zip` and its `.sha256` file from the same GitHub Release. Verify the archive, extract it, inspect the installer, then run:
 
@@ -82,7 +84,7 @@ See [installation and removal](docs/installation.md) for every state change and 
 5. Inspect provenance, writable paths, validators, and what Codex cannot see. Export the three-Case task pack if you want a portable record.
 6. Prepare a Run. This always creates a new isolated repository snapshot and, for Issue-to-PR, a new SQLite snapshot.
 7. Execute with Codex. The plugin exposes only the active local simulator operations.
-8. Read the objective Score. Treat a timeout or crash as an execution failure with `not_scored`, not as a failed task.
+8. Read the objective Score. Treat a timeout or crash as an execution failure with `not_scored`; treat a workspace preflight or Codex setup failure as `environment_error`. Neither is a failed task.
 9. Remove the Run workspace when finished. The retained Case, Run metadata, and Score stay local.
 
 ![Workflow Environment Factory separating Agent timeout from task failure](docs/images/ui-desktop-runs-synthetic.png)
@@ -96,6 +98,7 @@ See [installation and removal](docs/installation.md) for every state change and 
 - The Issue/PR simulator is local SQLite. It never calls GitHub, Linear, or a production account.
 - Repository paths and diagnostic content stay on the machine. Protocol exports are explicit user actions.
 - The solution revision is used to prove the Case during generation. Agent-facing MCP responses omit its commit and patch digest, and the Run's shallow object database contains only the baseline lineage needed for that snapshot.
+- Before a model call, App Server proves that the exact Run directory supports an offline `workspaceWrite` sandbox. The actual Codex command repeats network-off and no-extra-writable-root settings, uses an ephemeral thread, disables ambient user config, plugins, Hooks, Web search, apps, memories, computer use, image generation, and multi-Agent tools, explicitly registers only the local Factory MCP server, and gives model-generated commands only core environment variables plus the isolated Git variables required for `status` and `diff`.
 
 Read [security and local data](docs/security-and-data.md) before using the preview on a sensitive repository.
 

@@ -41,6 +41,8 @@ Every Case creates two short-lived baseline worktrees for factory-only gating, c
 
 Preparing a Run never reuses a prior workspace or simulator snapshot. The factory shallow-fetches only the selected baseline into a new object database, checks out a separate working directory with no `.git` marker, removes the temporary fetch ref, and commits the confirmed variant as `HEAD`. There is no remote, alternate object store, or known-correct descendant object. Git metadata stays outside Codex's writable workspace; `GIT_DIR`, `GIT_WORK_TREE`, and `GIT_OPTIONAL_LOCKS=0` provide bounded Git reads without making that metadata part of the workspace.
 
+Before any model-backed call, a separate short-lived App Server process performs a bounded write/read/delete probe under an offline `workspaceWrite` policy whose only writable root is the exact Run directory. Failure leaves the Run as `environment_error`. The real `codex exec` command then repeats the network and writable-root restrictions, uses an ephemeral thread, ignores ambient user config, disables unrelated product tools, explicitly registers only the Factory MCP server, and constrains tool-command environment inheritance to core variables plus the isolated Git variables. Repository AGENTS instructions remain part of the Case because `--ignore-rules` is deliberately not used.
+
 Codex emits JSONL events that are redacted before storage. Before the verifier runs, scoring freezes tracked and untracked changed paths against the isolated `HEAD`; verifier-created cache files therefore cannot be mistaken for Agent changes. It then executes the objective verifier and checks the simulator database when required.
 
 Execution and task result are separate protocol fields:
@@ -52,7 +54,7 @@ Execution and task result are separate protocol fields:
 
 ### Codex plugin
 
-The plugin has no database or executor. It reads the local token and calls Agent-specific API routes. Its six tools can read bounded Run/Case views, read the local Issue, list/create local PRs, and update local Issue status. The Agent views omit provenance, known-correct commit refs, patch digests, full validation evidence, and scores; the workbench and export routes retain that evidence for the user. There is no tool for preparing a Case, changing provenance, changing a validator, scoring, or publishing a result.
+The plugin has no database or executor. It reads the local token and calls Agent-specific API routes. Its six tools can read bounded Run/Case views, read the local Issue, list/create local PRs, and update local Issue status. The Agent views omit provenance, known-correct commit refs, patch digests, full validation evidence, and scores; the workbench and export routes retain that evidence for the user. There is no tool for preparing a Case, changing provenance, changing a validator, scoring, or publishing a result. Managed Runs launch the same MCP script through per-Run configuration rather than loading every ambient plugin.
 
 ### Protocol dependency
 
@@ -61,6 +63,7 @@ The source checkout keeps synced schemas under ignored `.runtime-deps`. Release 
 ## Failure and recovery model
 
 - A process restart converts preparing/running/validating Runs to `environment_error` instead of pretending the task failed.
+- A missing Codex executable, App Server workspace preflight failure, or recognized sandbox/auth/connectivity setup failure becomes `environment_error` before scoring; it is never converted into task failure.
 - Docker timeout removes the named container before returning timeout evidence.
 - Failed Run preparation attempts best-effort cleanup and retains cleanup failure text.
 - Isolated workspace/Git-state cleanup and simulator cleanup are independent so one error does not silently skip the other.

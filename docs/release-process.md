@@ -32,7 +32,7 @@ $env:WEF_DOCKER_GATE_IMAGE = 'python:3.11.16-slim-bookworm@sha256:0bee7276f83efd
 .\scripts\Prepare-ReleaseEvidence.ps1 -Version 0.1.0 -ProtocolRoot C:\path\to\runcase-interchange
 ```
 
-The gate produces one real code Score and one real Issue-to-PR Score, proves the required MCP actions, verifies the Agent cannot read the known-correct object or factory-only evidence, and removes its temporary product installation. The sanitized file includes no prompts, repository content, credential, or local path. Review it and commit only `release-evidence/workflow-product-gate-0.1.0.json`.
+The gate must run from a normal Windows session. Before either model call, it proves that the exact Run directory can sustain an offline App Server `workspaceWrite` sandbox; failure is infrastructure-inconclusive and cannot be bypassed with unrestricted execution. Each Codex Run ignores ambient user config and explicitly loads only the Factory MCP server. The gate then produces one real code Score and one real Issue-to-PR Score, proves the required MCP actions, verifies the Agent cannot read the known-correct object or factory-only evidence, and removes its temporary product installation. The sanitized file includes no prompts, repository content, credential, or local path. Review it and commit only `release-evidence/workflow-product-gate-0.1.0.json`.
 
 `Verify-ReleaseEvidence.ps1` requires the tested commit to be an ancestor of the release tag and permits only that evidence file to differ. `Package-Release.ps1` refuses to package without this proof, embeds it in the archive, records its SHA-256 in the release manifest, and publishes it as a separately attested asset.
 

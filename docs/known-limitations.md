@@ -5,7 +5,9 @@
 - The 0.1 preview supports Windows 11 and Codex only.
 - Docker Desktop with Linux containers is required for production Case generation and scoring.
 - The UI and service are local; there is no cloud sync, remote team access, or permission model.
-- Codex uses the user's active installation and configuration. Other installed plugins or user rules can influence a Run. Use a dedicated acceptance profile for controlled comparisons.
+- Codex uses the user's active binary and authentication. Managed Runs ignore ambient user config and installed plugins, explicitly inject only the Factory MCP server, and preserve repository AGENTS rules; a user-selected model or unrelated personal Skill therefore does not automatically carry into a Case. Explicit configuration snapshots are a later-version concern.
+- Start the service from a normal Windows session. A service already inside another Codex sandbox may be unable to establish the nested Run sandbox and will fail its no-model preflight instead of running the Agent.
+- On 2026-08-28 the current nested development host reproduced `apply deny-read ACLs`; the preflight made zero model calls and removed its sentinel. This is a host limitation, not a completed fresh-Windows acceptance result.
 
 ## Case generation
 

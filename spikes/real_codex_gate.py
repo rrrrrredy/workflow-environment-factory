@@ -165,6 +165,8 @@ def main() -> None:
     code_snapshot = _wait_for_score(base_url, token, code_run["run_id"])
     if code_snapshot["score"]["task_result"]["status"] != "pass":
         raise RuntimeError("real Codex code Run did not pass objective scoring")
+    if "environment_preflight_passed" not in _event_types(code_snapshot):
+        raise RuntimeError("real Codex code Run has no successful no-model workspace preflight evidence")
 
     issue_run = _json_request(base_url, token, "POST", f"/api/cases/{issue_cases[2]['case_id']}/runs")
     issue_workspace = Path(issue_run["workspace_path"])
@@ -174,6 +176,8 @@ def main() -> None:
     issue_snapshot = _wait_for_score(base_url, token, issue_run["run_id"], timeout_seconds=360)
     if issue_snapshot["score"]["task_result"]["status"] != "pass":
         raise RuntimeError("real Codex Issue-to-PR Run did not pass objective scoring")
+    if "environment_preflight_passed" not in _event_types(issue_snapshot):
+        raise RuntimeError("real Codex Issue-to-PR Run has no successful no-model workspace preflight evidence")
     simulator_events = _json_request(
         base_url, token, "GET", f"/api/simulator/runs/{issue_run['run_id']}/events"
     )["events"]
@@ -220,10 +224,12 @@ def main() -> None:
             "agentViewOmittedFactoryEvidence": safe_view_omits_factory_evidence,
         },
         "realCodex": {
+            "codeWorkspacePreflight": True,
             "codeTaskStatus": code_score["task_result"]["status"],
             "codeExecutionStatus": code_score["execution"]["status"],
             "codeEventCount": len(code_snapshot["run"]["codex_events"]),
             "codeEventTypes": _event_types(code_snapshot),
+            "issuePrWorkspacePreflight": True,
             "issuePrTaskStatus": issue_score["task_result"]["status"],
             "issuePrExecutionStatus": issue_score["execution"]["status"],
             "issuePrEventCount": len(issue_snapshot["run"]["codex_events"]),

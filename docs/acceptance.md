@@ -7,7 +7,7 @@ Passing a build is not product acceptance. The 0.1 release requires two real gol
 | Gate | Status on 2026-08-28 | Evidence boundary |
 |---|---|---|
 | Strict frontend production build | Passed | TypeScript strict check and Vite production bundle |
-| Focused backend golden scenarios | Passed | Three tests cover API auth, code vertical, and recorded Issue-to-PR vertical using the explicit local test engine |
+| Focused backend golden scenarios | Passed | Six tests cover API auth, code vertical, recorded Issue-to-PR, answer isolation, no-model App Server preflight, hardened Codex command settings, and failure classification using the explicit local test engine or fake App Server |
 | Agent answer-isolation regression | Passed | Agent Run has no `.git`, remote, alternates, or known-correct object; MCP Agent view omits solution commit and patch digest; untracked paths are scored |
 | Plugin and MCP structure | Passed | Official plugin validator, Skill validator, local structure validator, Node syntax, and MCP initialize/tools handshake |
 | Synthetic real-browser product flow | Passed | Local recording, three Case columns, inspector, three Runs, `not_scored` timeout boundary, mobile no-overflow, and zero console errors in Edge/Playwright |
@@ -15,6 +15,7 @@ Passing a build is not product acceptance. The 0.1 release requires two real gol
 | Real Docker code vertical | **Pending** | Docker is not installed on the current development host; local tests do not satisfy this gate |
 | Real Docker Issue-to-PR vertical | **Pending** | Same blocker; must run the release-only Docker gate with an immutable real image |
 | Real Codex controlled Run with plugin | **Pending** | Must be performed in a clean acceptance environment, not by installing the preview into the developer's active Codex |
+| No-model Codex workspace preflight on current development host | **Blocked by host** | The current shell is already inside Codex; the explicit offline root fails with `apply deny-read ACLs`, starts zero model calls, removes its sentinel, and does not prove failure from normal Windows |
 | Fresh Windows 11 install/uninstall | **Pending** | Requires a separate clean environment and proof that no plugin/service/startup state remains after uninstall |
 | Two independent pre-release reviews | **Pending** | One adversarial reviewer and one user-perspective reviewer run only after release candidates are complete |
 
@@ -59,7 +60,9 @@ $env:WEF_DOCKER_GATE_IMAGE = 'python:3.11.16-slim-bookworm@sha256:0bee7276f83efd
 .\scripts\Prepare-ReleaseEvidence.ps1 -Version 0.1.0 -ProtocolRoot C:\path\to\runcase-interchange
 ```
 
-The script refuses a dirty checkout or an existing product installation. It temporarily installs the real plugin, starts the loopback service with disposable data, asks authenticated Codex to complete one code Case and one Issue-to-PR Case, runs Docker-backed scoring, proves the known-correct object is absent, validates MCP simulator actions, cleans both Runs, then uninstalls and proves that plugin, marketplace, service, Startup entry, and data are absent. It writes only a sanitized, commit-bound JSON evidence file; prompts, repository contents, credentials, and local paths are excluded.
+The script refuses a dirty checkout or an existing product installation. It temporarily installs the real plugin and validates the user-facing distribution path, starts the loopback service with disposable data, then runs authenticated Codex with ambient user config disabled and only the product's MCP server explicitly registered. Codex completes one code Case and one Issue-to-PR Case; Docker-backed scoring proves the outcomes, the known-correct object remains absent, required MCP simulator actions are present, and both Runs are cleaned. The gate then uninstalls and proves that plugin, marketplace, service, Startup entry, and data are absent. It writes only a sanitized, commit-bound JSON evidence file; prompts, repository contents, credentials, and local paths are excluded.
+
+Run this gate from an ordinary Windows Terminal or PowerShell session. Each real Run first performs a no-model App Server workspace preflight under the same offline writable-root boundary; a failure stops before model use and makes the release gate inconclusive. Never rerun it with unrestricted Codex execution merely to obtain a green artifact.
 
 The evidence is single-run proof for two golden tasks, not a model-quality benchmark. Review and commit only `release-evidence/workflow-product-gate-0.1.0.json`, then run `scripts\Verify-ReleaseEvidence.ps1` before tagging.
 

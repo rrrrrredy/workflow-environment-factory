@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from conftest import RepositoryFixture, make_code_correct
@@ -101,3 +102,24 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
     services.store.save_run(services.store.get_run(crashed_run.run_id))
     assert services.store.get_score_for_run(crashed_run.run_id)["score_id"] == crashed_score["score_id"]
     services.factory.cleanup_run(crashed_run.run_id)
+
+
+def test_codex_preflight_failure_is_environment_error_without_model_score(services, repository_fixture) -> None:
+    class FailingPreflight:
+        def check(self, workspace: Path, environment: dict[str, str]) -> None:
+            del workspace, environment
+            raise RuntimeError("windows sandbox failed Bear" + "er synthetic-preflight-secret-12345678")
+
+    blueprint = services.factory.create_blueprint(code_blueprint(repository_fixture))
+    case = services.factory.generate_cases(blueprint.blueprint_id)[0]
+    run = services.factory.prepare_run(case.case_id)
+    services.runner.preflight = FailingPreflight()
+    services.runner.execute(run.run_id)
+    retained = services.store.get_run(run.run_id)
+    assert retained is not None
+    assert retained.status == RunStatus.ENVIRONMENT_ERROR
+    assert retained.completed_at is not None
+    assert any(event.get("type") == "environment_preflight_failed" for event in retained.codex_events)
+    assert "synthetic-preflight-secret-12345678" not in json.dumps(retained.model_dump(mode="json"))
+    assert services.store.get_score_for_run(run.run_id) is None
+    services.factory.cleanup_run(run.run_id)

@@ -332,6 +332,9 @@ def create_app(services: Services) -> FastAPI:
                 run.error = str(redact(f"Agent runner failed: {error}"))
                 services.store.save_run(run)
             return
+        completed_run = services.store.get_run(run_id)
+        if completed_run is None or completed_run.status == RunStatus.ENVIRONMENT_ERROR:
+            return
         try:
             services.scorer.score(run_id)
         except Exception as error:
