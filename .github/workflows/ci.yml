@@ -38,6 +38,12 @@ jobs:
         run: |
           $protocolRoot = (Resolve-Path ..\protocol).Path
           .\scripts\Check.ps1 -InstallDependencies -ProtocolRoot $protocolRoot
+      - name: Install pinned Codex CLI for clean lifecycle acceptance
+        run: npm install --global @openai/codex@0.150.0-alpha.8
+      - name: Verify Windows install, start, preserve, reinstall, delete, and uninstall
+        run: |
+          $protocolRoot = (Resolve-Path ..\protocol).Path
+          .\scripts\Acceptance-InstallUninstall.ps1 -ProtocolRoot $protocolRoot -EvidencePath (Join-Path $env:RUNNER_TEMP "factory-installation-evidence.json")
       - name: Install CI Chromium
         run: npx playwright install chromium
       - name: Run the single UI golden scenario
@@ -53,6 +59,13 @@ jobs:
           name: factory-ui-evidence
           path: ${{ runner.temp }}\factory-ui-evidence
           if-no-files-found: warn
+      - name: Upload installation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: factory-installation-evidence
+          path: ${{ runner.temp }}\factory-installation-evidence.json
+          if-no-files-found: error
 
   docker-golden:
     runs-on: ubuntu-latest

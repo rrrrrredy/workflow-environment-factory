@@ -64,6 +64,19 @@ function Invoke-WefNpm([string[]]$Arguments) {
   if ($LASTEXITCODE -ne 0) { throw "npm failed with exit code $LASTEXITCODE" }
 }
 
+function Test-WefMarketplacePresent([string]$Listing, [string]$Name) {
+  $escaped = [regex]::Escape($Name)
+  return (
+    $Listing -match "(?im)^\s*$escaped(?:\s+|$)" -or
+    $Listing -match "(?im)^\s*Marketplace\s+\W*$escaped\W*$"
+  )
+}
+
+function Test-WefPluginInstalled([string]$Listing, [string]$Selector) {
+  $escaped = [regex]::Escape($Selector)
+  return $Listing -match "(?im)^\s*$escaped\s+installed(?:,|\s|$)"
+}
+
 function Get-WefVenvPython {
   $runningOnWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
     [System.Runtime.InteropServices.OSPlatform]::Windows

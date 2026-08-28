@@ -26,12 +26,12 @@ $codexCommand = Get-Command codex.exe -ErrorAction SilentlyContinue
 if ($null -eq $codexCommand) { $codexCommand = Get-Command codex -ErrorAction SilentlyContinue }
 if ($null -ne $codexCommand) {
   $pluginOutput = (& $codexCommand.Source plugin list 2>&1 | Out-String)
-  if ($pluginOutput.Contains($pluginSelector, [StringComparison]::OrdinalIgnoreCase)) {
+  if (Test-WefPluginInstalled $pluginOutput $pluginSelector) {
     & $codexCommand.Source plugin remove $pluginSelector
     if ($LASTEXITCODE -ne 0) { throw "Codex could not remove $pluginSelector." }
   }
   $marketplaceOutput = (& $codexCommand.Source plugin marketplace list 2>&1 | Out-String)
-  if ($marketplaceOutput -match '(?im)^Marketplace\s+\W*workflow-environment-factory\W*$') {
+  if (Test-WefMarketplacePresent $marketplaceOutput $marketplaceName) {
     & $codexCommand.Source plugin marketplace remove $marketplaceName
     if ($LASTEXITCODE -ne 0) { throw "Codex could not remove marketplace $marketplaceName." }
   }

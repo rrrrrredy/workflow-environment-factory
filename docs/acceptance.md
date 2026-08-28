@@ -91,3 +91,5 @@ Expected assertions:
 12. Uninstall with a dedicated disposable data directory and `-DeleteData`; verify only that exact directory is removed.
 
 Store command output, protocol files, screenshots containing synthetic or deliberately non-sensitive data, and the clean-environment description with the release evidence. Do not replace these steps with a build badge.
+
+The repeatable clean-user installation portion is encoded in `scripts\Acceptance-InstallUninstall.ps1`. Its Windows evidence and the Ubuntu real-Docker golden evidence are complementary. A final release still requires the checklist above on Windows 11 with Docker Desktop Linux containers; combining two CI machines must not be described as that single-host acceptance.

@@ -4,10 +4,11 @@ All notable user-visible changes are documented here. The project follows Semant
 
 ## [Unreleased]
 
-- Clean-Windows acceptance, real Codex Docker evidence, and public release are still pending.
+- The repeatable clean-Windows installation lifecycle is implemented; hosted execution, single-host Windows 11 Docker Desktop acceptance, real Codex Docker evidence, and public release are still pending.
 - Windows CI runs the complete non-Docker product check; isolated Linux CI runs both real Docker golden verticals with a fixed official-image digest.
-- Tag releases repeat the Docker gates, attach a checksum, and publish GitHub provenance.
+- Tag releases repeat the Docker gates, attach a checksum plus a commit/protocol/Docker-bound manifest, require a fresh Windows installation job, and publish GitHub provenance.
 - The single browser golden scenario now has blocking assertions and runs in CI with screenshots kept as workflow evidence.
+- Installer and uninstaller now distinguish an installed plugin from an available marketplace entry, remove Codex 0.150 marketplace rows correctly, and carry custom port/data settings into service and Startup launches.
 
 ## [0.1.0] - 2026-08-28
 

@@ -37,7 +37,8 @@ try {
   New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
   $archivePath = Join-Path $outputRoot "workflow-environment-factory-$Version-windows-x64.zip"
   $checksumPath = "$archivePath.sha256"
-  foreach ($existing in @($archivePath, $checksumPath)) {
+  $manifestPath = Join-Path $outputRoot "workflow-environment-factory-$Version.release.json"
+  foreach ($existing in @($archivePath, $checksumPath, $manifestPath)) {
     if (Test-Path -LiteralPath $existing -PathType Leaf) { Remove-Item -LiteralPath $existing -Force }
   }
 
@@ -58,11 +59,16 @@ try {
     foreach ($schema in @("agent.run.v1.schema.json", "workflow.case.v1.schema.json", "workflow.score.v1.schema.json")) {
       Copy-Item -LiteralPath (Join-Path $schemaDirectory $schema) -Destination (Join-Path $stagedSchemaDirectory $schema) -Force
     }
-    $dependencyManifest = @{
+    $schemaHashes = [ordered]@{}
+    foreach ($schema in @("agent.run.v1.schema.json", "workflow.case.v1.schema.json", "workflow.score.v1.schema.json")) {
+      $schemaHashes[$schema] = (Get-FileHash -LiteralPath (Join-Path $schemaDirectory $schema) -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+    $dependencyManifest = [ordered]@{
       name = "agent-run-protocol"
       version = "0.1.0"
       source = "https://github.com/rrrrrredy/agent-run-protocol"
-      files = @("agent.run.v1.schema.json", "workflow.case.v1.schema.json", "workflow.score.v1.schema.json")
+      release = "https://github.com/rrrrrredy/agent-run-protocol/releases/tag/v0.1.0"
+      files = $schemaHashes
     } | ConvertTo-Json -Depth 4
     [System.IO.File]::WriteAllText((Join-Path $stageRoot ".runtime-deps\agent-run-protocol\dependency.json"), "$dependencyManifest`n")
 
@@ -73,6 +79,7 @@ try {
     $listing = (& $tar.Source -tf $archivePath | Out-String)
     foreach ($required in @(
       "$folderName/.agents/plugins/marketplace.json",
+      "$folderName/scripts/Acceptance-InstallUninstall.ps1",
       "$folderName/plugins/workflow-environment-factory/.codex-plugin/plugin.json",
       "$folderName/dist/web/index.html",
       "$folderName/.runtime-deps/agent-run-protocol/0.1.0/schemas/workflow.case.v1.schema.json"
@@ -94,6 +101,30 @@ try {
 
   $checksum = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
   [System.IO.File]::WriteAllText($checksumPath, "$checksum  workflow-environment-factory-$Version-windows-x64.zip`n")
+  $commit = (git rev-parse HEAD | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') { throw "Could not resolve release commit." }
+  $protocolHashes = [ordered]@{}
+  foreach ($schema in @("agent.run.v1.schema.json", "workflow.case.v1.schema.json", "workflow.score.v1.schema.json")) {
+    $protocolHashes[$schema] = (Get-FileHash -LiteralPath (Join-Path $schemaDirectory $schema) -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
+  $releaseManifest = [ordered]@{
+    schema_version = "workflow-environment-factory.release.v1"
+    version = $Version
+    commit = $commit
+    protocol_dependency = [ordered]@{
+      name = "agent-run-protocol"
+      version = "0.1.0"
+      schema_sha256 = $protocolHashes
+    }
+    docker_gate_image = [string]$env:WEF_DOCKER_GATE_IMAGE
+    archive = [ordered]@{
+      file = [System.IO.Path]::GetFileName($archivePath)
+      sha256 = $checksum
+      bytes = (Get-Item -LiteralPath $archivePath).Length
+    }
+    created_at = [DateTime]::UtcNow.ToString("o")
+  } | ConvertTo-Json -Depth 7
+  [System.IO.File]::WriteAllText($manifestPath, "$releaseManifest`n", [Text.UTF8Encoding]::new($false))
   Write-Host "Release archive: $archivePath"
   Write-Host "SHA-256: $checksum"
 } finally {

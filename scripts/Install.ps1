@@ -3,6 +3,8 @@ param(
   [switch]$NoStart,
   [switch]$Open,
   [switch]$Repair,
+  [ValidateRange(1024, 65535)][int]$Port = 43121,
+  [string]$DataDir = "",
   [string]$ProtocolRoot = "",
   [string]$MarketplaceSource = ""
 )
@@ -12,6 +14,7 @@ param(
 if ($env:OS -ne "Windows_NT") { throw "The 0.1 installer supports Windows 11 only." }
 Resolve-WefNode | Out-Null
 Resolve-WefPython | Out-Null
+$resolvedDataDir = Get-WefDataDir $DataDir
 $codexCommand = Get-Command codex.exe -ErrorAction SilentlyContinue
 if ($null -eq $codexCommand) { $codexCommand = Get-Command codex -ErrorAction SilentlyContinue }
 if ($null -eq $codexCommand) { throw "Codex CLI is required and was not found on PATH." }
@@ -21,21 +24,27 @@ Write-Host "Checking the local runtime, protocol schemas, plugin, and focused pr
 if ($LASTEXITCODE -ne 0) { throw "Release checks failed; nothing was installed." }
 $venvPython = Get-WefVenvPython
 $previousProtocol = [Environment]::GetEnvironmentVariable("WEF_PROTOCOL_SCHEMA_DIR", "Process")
+$previousDataDir = [Environment]::GetEnvironmentVariable("WEF_DATA_DIR", "Process")
+$previousPort = [Environment]::GetEnvironmentVariable("WEF_PORT", "Process")
 [Environment]::SetEnvironmentVariable("WEF_PROTOCOL_SCHEMA_DIR", (Get-WefProtocolDir), "Process")
+[Environment]::SetEnvironmentVariable("WEF_DATA_DIR", $resolvedDataDir, "Process")
+[Environment]::SetEnvironmentVariable("WEF_PORT", [string]$Port, "Process")
 try {
   & $venvPython -m workflow_environment_factory.cli doctor
   if ($LASTEXITCODE -ne 0) { throw "Docker/Codex prerequisites are not ready; nothing was installed." }
 } finally {
   [Environment]::SetEnvironmentVariable("WEF_PROTOCOL_SCHEMA_DIR", $previousProtocol, "Process")
+  [Environment]::SetEnvironmentVariable("WEF_DATA_DIR", $previousDataDir, "Process")
+  [Environment]::SetEnvironmentVariable("WEF_PORT", $previousPort, "Process")
 }
 
 $source = if ([string]::IsNullOrWhiteSpace($MarketplaceSource)) { $script:WefRoot } else { $MarketplaceSource }
 $marketplaceName = "workflow-environment-factory"
 $pluginSelector = "workflow-environment-factory@workflow-environment-factory"
 $marketplaceOutput = (& $codexCommand.Source plugin marketplace list 2>&1 | Out-String)
-$marketplacePresent = $marketplaceOutput -match '(?im)^Marketplace\s+\W*workflow-environment-factory\W*$'
+$marketplacePresent = Test-WefMarketplacePresent $marketplaceOutput $marketplaceName
 $pluginOutput = (& $codexCommand.Source plugin list 2>&1 | Out-String)
-$pluginPresent = $pluginOutput.Contains($pluginSelector, [StringComparison]::OrdinalIgnoreCase)
+$pluginPresent = Test-WefPluginInstalled $pluginOutput $pluginSelector
 
 if ($Repair -and $pluginPresent) {
   & $codexCommand.Source plugin remove $pluginSelector
@@ -70,7 +79,7 @@ if ($EnableStartup) {
   $shell = New-Object -ComObject WScript.Shell
   $shortcut = $shell.CreateShortcut($shortcutPath)
   $shortcut.TargetPath = $powerShellCommand.Source
-  $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $PSScriptRoot 'Start.ps1')`""
+  $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $PSScriptRoot 'Start.ps1')`" -Port $Port -DataDir `"$resolvedDataDir`""
   $shortcut.WorkingDirectory = $script:WefRoot
   $shortcut.WindowStyle = 7
   $shortcut.Description = "Start Workflow Environment Factory locally at sign-in"
@@ -78,6 +87,6 @@ if ($EnableStartup) {
   Write-Host "Enabled current-user startup: $shortcutPath"
 }
 
-if (-not $NoStart) { & (Join-Path $PSScriptRoot "Start.ps1") -Open:$Open }
+if (-not $NoStart) { & (Join-Path $PSScriptRoot "Start.ps1") -Open:$Open -Port $Port -DataDir $resolvedDataDir }
 Write-Host "Workflow Environment Factory is installed. Restart Codex to load its simulator MCP tools and Skill."
 Write-Host "Uninstall with .\scripts\Uninstall.ps1; product data is preserved unless -DeleteData is explicitly supplied."

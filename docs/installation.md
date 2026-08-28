@@ -32,6 +32,8 @@ The installer is a readable PowerShell script. It does not require administrator
 
 Use `-EnableStartup` only when you want the current-user service to start at sign-in. Use `-NoStart` to prepare dependencies and the plugin without starting the service.
 
+`-Port` and `-DataDir` are forwarded to the first service start and the optional Startup shortcut. When either is customized, launch Codex with matching `WEF_PORT` and `WEF_DATA_DIR` values so the simulator MCP tools use the same local instance.
+
 ## Exact state changes
 
 | State | Installer action | Removal |
@@ -104,6 +106,8 @@ To delete local product data permanently:
 ```
 
 The script refuses to recursively delete a drive root, user profile, `%LOCALAPPDATA%`, or a suspiciously short path. This deletion is not recoverable by the product.
+
+Release CI executes `scripts\Acceptance-InstallUninstall.ps1` in an isolated Codex home and records real plugin, marketplace, loopback service, Startup, preservation, reinstall, deletion, and final-removal evidence. Its Docker doctor proves that a Docker server responds on Windows; real Linux-container execution of both product verticals is a separate Docker golden gate and is never inferred from the doctor.
 
 ## Offline behavior
 

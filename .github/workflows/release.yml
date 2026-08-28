@@ -11,7 +11,45 @@ permissions:
   attestations: write
 
 jobs:
+  windows-installation:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: product
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: product
+      - uses: actions/checkout@v4
+        with:
+          repository: rrrrrredy/agent-run-protocol
+          ref: v0.1.0
+          path: protocol
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: product/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: product/requirements.lock
+      - name: Install pinned Codex CLI
+        run: npm install --global @openai/codex@0.150.0-alpha.8
+      - name: Verify clean Windows installation lifecycle
+        run: |
+          $protocolRoot = (Resolve-Path ..\protocol).Path
+          .\scripts\Acceptance-InstallUninstall.ps1 -ProtocolRoot $protocolRoot -EvidencePath (Join-Path $env:RUNNER_TEMP "factory-installation-evidence.json")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: factory-installation-evidence
+          path: ${{ runner.temp }}\factory-installation-evidence.json
+          if-no-files-found: error
+
   release:
+    needs: windows-installation
     runs-on: ubuntu-latest
     env:
       WEF_DOCKER_GATE_IMAGE: python:3.11.16-slim-bookworm@sha256:0bee7276f83efd4a1ee05bbbf4281d95ed28e079220a9457f25a93e3f1e3c31b
@@ -53,12 +91,19 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           npm run probe:ui
+      - name: Download clean Windows installation evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: factory-installation-evidence
+          path: artifacts
       - name: Attest release archive
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: |
             artifacts/*.zip
             artifacts/*.sha256
+            artifacts/*.release.json
+            artifacts/factory-installation-evidence.json
       - name: Publish GitHub Release
         shell: pwsh
         env:
