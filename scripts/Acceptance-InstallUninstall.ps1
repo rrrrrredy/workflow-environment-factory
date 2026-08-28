@@ -31,6 +31,34 @@ function Remove-TestRoot([string]$Path, [string]$AllowedParent) {
   Remove-Item -LiteralPath $resolved -Recurse -Force
 }
 
+function Get-AcceptanceSourceEvidence {
+  $releaseSourcePath = Join-Path $script:WefRoot "release-source.json"
+  if (Test-Path -LiteralPath $releaseSourcePath -PathType Leaf) {
+    $releaseSource = Get-Content -LiteralPath $releaseSourcePath -Raw | ConvertFrom-Json
+    $expectedVersion = (Get-Content -LiteralPath (Join-Path $script:WefRoot "plugins\workflow-environment-factory\.codex-plugin\plugin.json") -Raw | ConvertFrom-Json).version
+    Assert-Acceptance ($releaseSource.schema_version -eq "product.release-source.v1") "release-source.json has an unsupported schema"
+    Assert-Acceptance ($releaseSource.product -eq "workflow-environment-factory") "release-source.json names another product"
+    Assert-Acceptance ($releaseSource.version -eq $expectedVersion) "release-source.json version does not match plugin.json"
+    Assert-Acceptance ([string]$releaseSource.commit -match '^[0-9a-f]{40}$') "release-source.json has an invalid commit"
+    return [pscustomobject]@{
+      kind = "release_archive"
+      commit = [string]$releaseSource.commit
+      dirty = $null
+    }
+  }
+
+  $git = Get-Command git -ErrorAction Stop
+  $commit = (& $git.Source -C $script:WefRoot rev-parse HEAD | Out-String).Trim()
+  Assert-Acceptance ($LASTEXITCODE -eq 0 -and $commit -match '^[0-9a-f]{40}$') "source checkout commit cannot be resolved"
+  $dirty = -not [string]::IsNullOrWhiteSpace((& $git.Source -C $script:WefRoot status --porcelain | Out-String).Trim())
+  Assert-Acceptance ($LASTEXITCODE -eq 0) "source checkout status cannot be resolved"
+  return [pscustomobject]@{
+    kind = "git_checkout"
+    commit = $commit
+    dirty = $dirty
+  }
+}
+
 $tempParent = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
   [System.IO.Path]::GetTempPath()
 } else {
@@ -93,13 +121,14 @@ try {
 
   $dockerVersion = (& docker version --format '{{.Server.Version}}|{{.Server.Os}}|{{.Server.Arch}}' 2>&1 | Out-String).Trim()
   if ($LASTEXITCODE -ne 0) { throw "Docker became unavailable after installation acceptance: $dockerVersion" }
-  $worktreeDirty = -not [string]::IsNullOrWhiteSpace((& git -C $script:WefRoot status --porcelain | Out-String).Trim())
+  $sourceEvidence = Get-AcceptanceSourceEvidence
   $evidence = [ordered]@{
     schema_version = "product.installation-acceptance.v1"
     product = "workflow-environment-factory"
     product_version = (Get-Content -LiteralPath (Join-Path $script:WefRoot "pyproject.toml") -Raw | Select-String -Pattern '(?m)^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
-    tested_commit = (& git -C $script:WefRoot rev-parse HEAD).Trim()
-    worktree_dirty = $worktreeDirty
+    tested_commit = $sourceEvidence.commit
+    source_kind = $sourceEvidence.kind
+    worktree_dirty = $sourceEvidence.dirty
     started_at = $startedAt.ToString("o")
     completed_at = [DateTimeOffset]::UtcNow.ToString("o")
     os = (Get-CimInstance Win32_OperatingSystem).Caption

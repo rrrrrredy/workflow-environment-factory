@@ -23,6 +23,8 @@ try {
   if ($package.version -ne $Version -or $manifest.version -ne $Version) {
     throw "Requested version $Version must match package.json and plugin.json."
   }
+  $commit = (git rev-parse HEAD | Out-String).Trim()
+  if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') { throw "Could not resolve release commit." }
 
   $schemaDirectory = Get-WefProtocolDir
   foreach ($schema in @("agent.run.v1.schema.json", "workflow.case.v1.schema.json", "workflow.score.v1.schema.json")) {
@@ -52,6 +54,13 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "git archive failed." }
     Expand-Archive -LiteralPath $sourceArchive -DestinationPath $expanded
     $stageRoot = Join-Path $expanded $folderName
+    $releaseSource = [ordered]@{
+      schema_version = "product.release-source.v1"
+      product = "workflow-environment-factory"
+      version = $Version
+      commit = $commit
+    } | ConvertTo-Json -Depth 3
+    [System.IO.File]::WriteAllText((Join-Path $stageRoot "release-source.json"), "$releaseSource`n", [Text.UTF8Encoding]::new($false))
 
     Copy-Item -LiteralPath (Join-Path $script:WefRoot "dist\web") -Destination (Join-Path $stageRoot "dist\web") -Recurse -Force
     $stagedSchemaDirectory = Join-Path $stageRoot ".runtime-deps\runcase-interchange\0.1.0\schemas"
@@ -79,6 +88,7 @@ try {
     $listing = (& $tar.Source -tf $archivePath | Out-String)
     foreach ($required in @(
       "$folderName/.agents/plugins/marketplace.json",
+      "$folderName/release-source.json",
       "$folderName/scripts/Acceptance-InstallUninstall.ps1",
       "$folderName/plugins/workflow-environment-factory/.codex-plugin/plugin.json",
       "$folderName/dist/web/index.html",
@@ -101,8 +111,6 @@ try {
 
   $checksum = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
   [System.IO.File]::WriteAllText($checksumPath, "$checksum  workflow-environment-factory-$Version-windows-x64.zip`n")
-  $commit = (git rev-parse HEAD | Out-String).Trim()
-  if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') { throw "Could not resolve release commit." }
   $protocolHashes = [ordered]@{}
   foreach ($schema in @("agent.run.v1.schema.json", "workflow.case.v1.schema.json", "workflow.score.v1.schema.json")) {
     $protocolHashes[$schema] = (Get-FileHash -LiteralPath (Join-Path $schemaDirectory $schema) -Algorithm SHA256).Hash.ToLowerInvariant()

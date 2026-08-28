@@ -23,7 +23,7 @@ The image is the Docker Official Image manifest digest returned by Docker Hub fo
 7. Correct code without simulator state fails the Issue-to-PR Case; correct code plus linked PR and issue status passes.
 8. Every prepared Run is cleaned up.
 
-The release workflow repeats the Docker and browser gates rather than trusting an earlier workflow, builds the Windows source archive with compiled web assets and pinned protocol schemas, emits a SHA-256 file plus a commit/protocol/Docker-bound release manifest, and attaches GitHub build provenance.
+The release workflow repeats the Docker and browser gates rather than trusting an earlier workflow, builds the Windows source archive with compiled web assets, pinned protocol schemas, and an embedded `release-source.json` for no-`.git` acceptance, emits a SHA-256 file plus a commit/protocol/Docker-bound release manifest, and attaches GitHub build provenance.
 
 A separate fresh Windows job runs the real installer, loopback service, Codex plugin/marketplace registration, Startup removal, data preservation, reinstall, and explicit deletion. Its sanitized `factory-installation-evidence.json` is published with the archive. The Ubuntu Docker gate and this Windows lifecycle gate are complementary; neither is described as a single-host Windows 11 Docker Desktop acceptance.
 
