@@ -40,4 +40,6 @@ The release workflow verifies the committed real Codex evidence, repeats the Doc
 
 A separate fresh Windows job runs the real installer, loopback service, Codex plugin/marketplace registration, Startup removal, data preservation, reinstall, and explicit deletion. Its sanitized `factory-installation-evidence.json` is published with the archive. The Ubuntu Docker gate and this Windows lifecycle gate are complementary; neither is described as a single-host Windows 11 Docker Desktop acceptance.
 
-The release remains a technical preview until the separate fresh Windows installation, Codex execution, UI, uninstall, and no-residue acceptance is attached.
+The workflow publishes a GitHub prerelease using the version-matched notes under `docs/releases/`. A missing notes file blocks publication; an automatically generated commit summary is not accepted as the product release page.
+
+The release remains a technical preview until the separate fresh Windows 11 installation with Docker Desktop Linux containers, Codex execution, UI, uninstall, and no-residue acceptance is attached.
