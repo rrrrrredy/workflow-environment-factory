@@ -55,7 +55,7 @@ Point to exact runtimes when multiple versions are installed:
 ```powershell
 $env:WEF_NODE = 'D:\tools\node-v22\node.exe'
 $env:WEF_PYTHON = 'D:\tools\Python311\python.exe'
-.\scripts\Sync-Protocol.ps1 -ProtocolRoot D:\code\agent-run-protocol
+.\scripts\Sync-Protocol.ps1 -ProtocolRoot D:\code\runcase-interchange
 .\scripts\Check.ps1 -InstallDependencies
 .\scripts\Start.ps1 -Open
 ```
@@ -85,7 +85,7 @@ For troubleshooting, use foreground mode:
 | `WEF_PYTHON` | Exact Python 3.11-3.13 executable |
 | `WEF_DATA_DIR` | Override the local product data directory |
 | `WEF_PORT` | Override the backend port; default `43121` |
-| `WEF_PROTOCOL_SCHEMA_DIR` | Override the Agent Run Protocol schema directory |
+| `WEF_PROTOCOL_SCHEMA_DIR` | Override the RunCase Interchange schema directory |
 | `CODEX_EXECUTABLE` | Override the Codex command used for Runs |
 | `DOCKER_EXECUTABLE` | Override the Docker command |
 

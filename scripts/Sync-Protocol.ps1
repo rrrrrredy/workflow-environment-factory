@@ -1,13 +1,13 @@
 param(
   [string]$ProtocolRoot = "",
-  [string]$ReleaseUrl = "https://github.com/rrrrrredy/agent-run-protocol/releases/download/v0.1.0/agent-run-protocol-schemas-0.1.0.zip",
+  [string]$ReleaseUrl = "https://github.com/rrrrrredy/runcase-interchange/releases/download/v0.1.0/runcase-interchange-schemas-0.1.0.zip",
   [string]$ExpectedSha256 = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
-$destination = Join-Path $repositoryRoot ".runtime-deps\agent-run-protocol\0.1.0\schemas"
+$destination = Join-Path $repositoryRoot ".runtime-deps\runcase-interchange\0.1.0\schemas"
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 $schemaNames = @(
   "agent.run.v1.schema.json",
@@ -31,7 +31,7 @@ if (-not [string]::IsNullOrWhiteSpace($ProtocolRoot)) {
   if ([string]::IsNullOrWhiteSpace($ExpectedSha256)) {
     throw "ExpectedSha256 is required for a remote protocol release. Use -ProtocolRoot for a local development checkout."
   }
-  $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "wef-arp-sync-$([Guid]::NewGuid().ToString('N'))"
+  $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "wef-rci-sync-$([Guid]::NewGuid().ToString('N'))"
   New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
   try {
     $archive = Join-Path $temporaryRoot "protocol.zip"
@@ -48,7 +48,7 @@ if (-not [string]::IsNullOrWhiteSpace($ProtocolRoot)) {
   } finally {
     if (Test-Path -LiteralPath $temporaryRoot -PathType Container) {
       $resolvedTemporary = (Resolve-Path -LiteralPath $temporaryRoot).Path
-      $expectedPrefix = Join-Path ([System.IO.Path]::GetTempPath()) "wef-arp-sync-"
+      $expectedPrefix = Join-Path ([System.IO.Path]::GetTempPath()) "wef-rci-sync-"
       if (-not $resolvedTemporary.StartsWith($expectedPrefix, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Unsafe protocol sync cleanup target: $resolvedTemporary"
       }
@@ -57,4 +57,4 @@ if (-not [string]::IsNullOrWhiteSpace($ProtocolRoot)) {
   }
 }
 
-Write-Host "Agent Run Protocol 0.1.0 schemas synced to $destination"
+Write-Host "RunCase Interchange 0.1.0 schemas synced to $destination"

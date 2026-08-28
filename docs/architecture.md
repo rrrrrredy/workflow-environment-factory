@@ -1,6 +1,6 @@
 # Architecture
 
-The two products in this project family are deliberately independent. Workflow Environment Factory owns its own service, database, UI, plugin, simulator, and Docker execution path. Its only shared dependency is the versioned Agent Run Protocol schema package.
+The two products in this project family are deliberately independent. Workflow Environment Factory owns its own service, database, UI, plugin, simulator, and Docker execution path. Its only shared dependency is the versioned RunCase Interchange schema package.
 
 ```mermaid
 flowchart LR
@@ -15,7 +15,7 @@ flowchart LR
     Runner --> Codex[Existing Codex CLI]
     Codex --> Plugin[Independent Codex plugin]
     Plugin --> Sim
-    API --> Protocol[Agent Run Protocol schemas]
+    API --> Protocol[RunCase Interchange schemas]
 ```
 
 ## Main components

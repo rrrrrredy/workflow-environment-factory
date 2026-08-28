@@ -105,7 +105,7 @@ function Get-WefDataDir([string]$Requested = "") {
 }
 
 function Get-WefProtocolDir {
-  return Join-Path $script:WefRoot ".runtime-deps\agent-run-protocol\0.1.0\schemas"
+  return Join-Path $script:WefRoot ".runtime-deps\runcase-interchange\0.1.0\schemas"
 }
 
 function Get-WefHealth([int]$Port) {

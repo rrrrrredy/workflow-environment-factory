@@ -29,7 +29,7 @@ class ProtocolValidator:
             path = self.schema_directory / SCHEMA_FILES[schema_version]
             if not path.is_file():
                 raise ProtocolValidationError(
-                    f"Agent Run Protocol schema is missing: {path}. "
+                    f"RunCase Interchange schema is missing: {path}. "
                     "Run scripts/Sync-Protocol.ps1 before starting the product."
                 )
             schema = json.loads(path.read_text(encoding="utf-8"))

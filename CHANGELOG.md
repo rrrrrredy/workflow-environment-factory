@@ -20,7 +20,7 @@ All notable user-visible changes are documented here. The project follows Semant
 - Docker verifier boundary and a release-only real Docker integration gate.
 - Codex plugin with one bounded Skill and six local simulator MCP tools.
 - Agent timeout/crash, environment/reset error, validator error, and task result separation.
-- Agent Run Protocol Case and Score validation plus three-Case task-pack export.
+- RunCase Interchange Case and Score validation plus three-Case task-pack export.
 - Windows build, start, stop, install, uninstall, and release packaging scripts.
 
 ### Security

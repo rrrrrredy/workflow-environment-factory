@@ -23,7 +23,7 @@ jobs:
           path: product
       - uses: actions/checkout@v4
         with:
-          repository: rrrrrredy/agent-run-protocol
+          repository: rrrrrredy/runcase-interchange
           ref: v0.1.0
           path: protocol
       - uses: actions/setup-node@v4
@@ -60,7 +60,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/checkout@v4
         with:
-          repository: rrrrrredy/agent-run-protocol
+          repository: rrrrrredy/runcase-interchange
           ref: v0.1.0
           path: protocol
       - uses: actions/setup-node@v4

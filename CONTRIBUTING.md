@@ -14,7 +14,7 @@ Contributions are welcome when they preserve the product's evidence boundary: a 
 ```powershell
 $env:WEF_NODE = 'C:\path\to\node-v22\node.exe'
 $env:WEF_PYTHON = 'C:\path\to\python.exe'
-.\scripts\Sync-Protocol.ps1 -ProtocolRoot C:\path\to\agent-run-protocol
+.\scripts\Sync-Protocol.ps1 -ProtocolRoot C:\path\to\runcase-interchange
 .\scripts\Check.ps1 -InstallDependencies
 ```
 
@@ -33,7 +33,7 @@ $env:WEF_DOCKER_GATE_IMAGE = 'python@sha256:<reviewed-real-digest>'
 - Any durable diagnostic content passes through redaction.
 - Recursive or forceful cleanup resolves the exact target under a product-owned root first.
 - UI changes need a strict production build and a real browser check at desktop and mobile widths.
-- Protocol changes belong in the independent Agent Run Protocol repository first.
+- Protocol changes belong in the independent RunCase Interchange repository first.
 - The Codex MCP surface must not gain a score, validator, provenance, or hidden-solution mutation tool.
 
 ## Pull requests

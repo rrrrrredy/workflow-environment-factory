@@ -35,7 +35,7 @@ class Settings:
             else Path.home() / ".workflow-environment-factory"
         )
         data_dir = Path(os.getenv("WEF_DATA_DIR", str(default_data))).expanduser().resolve()
-        default_protocol = data_dir / "dependencies" / "agent-run-protocol" / "0.1.0" / "schemas"
+        default_protocol = data_dir / "dependencies" / "runcase-interchange" / "0.1.0" / "schemas"
         protocol_schema_dir = Path(os.getenv("WEF_PROTOCOL_SCHEMA_DIR", str(default_protocol))).expanduser().resolve()
         root = (repository_root or Path.cwd()).resolve()
         settings = cls(

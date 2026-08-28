@@ -85,7 +85,7 @@ Expected assertions:
 6. Complete one local Issue-to-PR recording, Blueprint, base Case, and two valid variants.
 7. Execute Codex on one wrong and one correct path for each vertical and inspect objective Scores.
 8. Stop and restart the service; verify retained documents and interrupted-Run recovery.
-9. Export and validate a Case, Score, and task pack with Agent Run Protocol tooling.
+9. Export and validate a Case, Score, and task pack with RunCase Interchange tooling.
 10. Uninstall without deleting data; confirm plugin, marketplace, service, and startup state are gone.
 11. Optionally reinstall and prove preserved data reopens.
 12. Uninstall with a dedicated disposable data directory and `-DeleteData`; verify only that exact directory is removed.

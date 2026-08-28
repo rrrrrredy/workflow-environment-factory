@@ -10,7 +10,7 @@ $venvPython = Initialize-WefVenv
 $schemaDirectory = Get-WefProtocolDir
 if (-not (Test-Path -LiteralPath (Join-Path $schemaDirectory "workflow.case.v1.schema.json") -PathType Leaf)) {
   if ([string]::IsNullOrWhiteSpace($ProtocolRoot)) {
-    throw "Protocol schemas are missing. Pass -ProtocolRoot to a checked-out agent-run-protocol release."
+    throw "Protocol schemas are missing. Pass -ProtocolRoot to a checked-out runcase-interchange release."
   }
   & (Join-Path $PSScriptRoot "Sync-Protocol.ps1") -ProtocolRoot $ProtocolRoot
 }

@@ -54,7 +54,7 @@ try {
     $stageRoot = Join-Path $expanded $folderName
 
     Copy-Item -LiteralPath (Join-Path $script:WefRoot "dist\web") -Destination (Join-Path $stageRoot "dist\web") -Recurse -Force
-    $stagedSchemaDirectory = Join-Path $stageRoot ".runtime-deps\agent-run-protocol\0.1.0\schemas"
+    $stagedSchemaDirectory = Join-Path $stageRoot ".runtime-deps\runcase-interchange\0.1.0\schemas"
     New-Item -ItemType Directory -Path $stagedSchemaDirectory -Force | Out-Null
     foreach ($schema in @("agent.run.v1.schema.json", "workflow.case.v1.schema.json", "workflow.score.v1.schema.json")) {
       Copy-Item -LiteralPath (Join-Path $schemaDirectory $schema) -Destination (Join-Path $stagedSchemaDirectory $schema) -Force
@@ -64,13 +64,13 @@ try {
       $schemaHashes[$schema] = (Get-FileHash -LiteralPath (Join-Path $schemaDirectory $schema) -Algorithm SHA256).Hash.ToLowerInvariant()
     }
     $dependencyManifest = [ordered]@{
-      name = "agent-run-protocol"
+      name = "runcase-interchange"
       version = "0.1.0"
-      source = "https://github.com/rrrrrredy/agent-run-protocol"
-      release = "https://github.com/rrrrrredy/agent-run-protocol/releases/tag/v0.1.0"
+      source = "https://github.com/rrrrrredy/runcase-interchange"
+      release = "https://github.com/rrrrrredy/runcase-interchange/releases/tag/v0.1.0"
       files = $schemaHashes
     } | ConvertTo-Json -Depth 4
-    [System.IO.File]::WriteAllText((Join-Path $stageRoot ".runtime-deps\agent-run-protocol\dependency.json"), "$dependencyManifest`n")
+    [System.IO.File]::WriteAllText((Join-Path $stageRoot ".runtime-deps\runcase-interchange\dependency.json"), "$dependencyManifest`n")
 
     $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
     if ($null -eq $tar) { $tar = Get-Command tar -ErrorAction Stop }
@@ -82,7 +82,7 @@ try {
       "$folderName/scripts/Acceptance-InstallUninstall.ps1",
       "$folderName/plugins/workflow-environment-factory/.codex-plugin/plugin.json",
       "$folderName/dist/web/index.html",
-      "$folderName/.runtime-deps/agent-run-protocol/0.1.0/schemas/workflow.case.v1.schema.json"
+      "$folderName/.runtime-deps/runcase-interchange/0.1.0/schemas/workflow.case.v1.schema.json"
     )) {
       if (-not $listing.Contains($required, [StringComparison]::Ordinal)) {
         throw "Release archive is missing required file: $required"
@@ -112,7 +112,7 @@ try {
     version = $Version
     commit = $commit
     protocol_dependency = [ordered]@{
-      name = "agent-run-protocol"
+      name = "runcase-interchange"
       version = "0.1.0"
       schema_sha256 = $protocolHashes
     }

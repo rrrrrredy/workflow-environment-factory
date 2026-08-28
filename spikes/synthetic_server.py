@@ -195,7 +195,7 @@ def main() -> None:
         worktrees_dir=data_dir / "worktrees",
         simulator_dir=data_dir / "simulators",
         token_path=data_dir / "session-token",
-        protocol_schema_dir=root / ".runtime-deps" / "agent-run-protocol" / "0.1.0" / "schemas",
+        protocol_schema_dir=root / ".runtime-deps" / "runcase-interchange" / "0.1.0" / "schemas",
         codex_executable="codex",
         docker_executable="synthetic-no-docker",
         web_root=root / "dist" / "web",

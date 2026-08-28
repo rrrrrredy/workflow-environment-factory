@@ -3,5 +3,5 @@ Copyright 2026 Song Luo
 
 This product is licensed under the Apache License, Version 2.0.
 
-The bundled Agent Run Protocol schemas are a separate Apache-2.0 project:
-https://github.com/rrrrrredy/agent-run-protocol
+The bundled RunCase Interchange schemas are a separate Apache-2.0 project:
+https://github.com/rrrrrredy/runcase-interchange

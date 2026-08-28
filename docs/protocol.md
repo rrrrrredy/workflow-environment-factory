@@ -1,15 +1,15 @@
-# Agent Run Protocol integration
+# RunCase Interchange integration
 
-Workflow Environment Factory depends on [Agent Run Protocol](https://github.com/rrrrrredy/agent-run-protocol) 0.1.0 for three document types:
+Workflow Environment Factory depends on [RunCase Interchange](https://github.com/rrrrrredy/runcase-interchange) 0.1.0 for three document types:
 
 - `workflow.case.v1`: one generated task, environment/reset contract, allowed tools, objective validators, provenance, and safety limits;
 - `workflow.score.v1`: one Run's execution status, task result, validator evidence, resource use, and nondeterminism statement;
 - `agent.run.v1`: the shared Run envelope used for future cross-product import/export.
 
-The product validates Case and Score documents against the JSON Schema 2020-12 files before storing or exporting them. Release packages include those three schemas under `.runtime-deps\agent-run-protocol\0.1.0\schemas` with dependency metadata. Source checkouts sync them explicitly:
+The product validates Case and Score documents against the JSON Schema 2020-12 files before storing or exporting them. Release packages include those three schemas under `.runtime-deps\runcase-interchange\0.1.0\schemas` with dependency metadata. Source checkouts sync them explicitly:
 
 ```powershell
-.\scripts\Sync-Protocol.ps1 -ProtocolRoot C:\path\to\agent-run-protocol
+.\scripts\Sync-Protocol.ps1 -ProtocolRoot C:\path\to\runcase-interchange
 ```
 
 Remote sync requires both a release URL and an exact SHA-256. An unverified download is rejected.
@@ -27,7 +27,7 @@ The Case Factory exports individual `workflow.case.v1` documents and a three-Cas
 - exactly three individually valid `workflow.case.v1` documents;
 - a short evidence-boundary statement.
 
-Consumers should validate every nested Case with Agent Run Protocol. They must not interpret the task-pack envelope as a benchmark result or a general quality claim.
+Consumers should validate every nested Case with RunCase Interchange. They must not interpret the task-pack envelope as a benchmark result or a general quality claim.
 
 ## Versioning rule
 

@@ -15,7 +15,7 @@ $webIndex = Join-Path $script:WefRoot "dist\web\index.html"
 if (-not (Test-Path -LiteralPath $webIndex -PathType Leaf)) { throw "The production UI is missing. Run scripts\Build.ps1 first." }
 $protocolDirectory = Get-WefProtocolDir
 if (-not (Test-Path -LiteralPath (Join-Path $protocolDirectory "workflow.case.v1.schema.json") -PathType Leaf)) {
-  throw "Agent Run Protocol schemas are missing. Run scripts\Sync-Protocol.ps1 first."
+  throw "RunCase Interchange schemas are missing. Run scripts\Sync-Protocol.ps1 first."
 }
 
 $resolvedDataDir = Get-WefDataDir $DataDir

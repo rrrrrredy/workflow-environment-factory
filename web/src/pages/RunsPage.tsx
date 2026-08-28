@@ -413,7 +413,7 @@ export function RunsPage({ cases, runs, onChanged, onError }: Props) {
           <div>
             <span className="section-kicker">Open interchange</span>
             <h2>Protocol library</h2>
-            <p>Validate and retain Agent Run Protocol files. Imported documents remain evidence; they never become runnable local Cases automatically.</p>
+            <p>Validate and retain RunCase Interchange files. Imported documents remain evidence; they never become runnable local Cases automatically.</p>
           </div>
           <label className={busy === "import" ? "button secondary disabled" : "button secondary"}>
             <Upload size={16} /> {busy === "import" ? "Importing…" : "Import JSON"}

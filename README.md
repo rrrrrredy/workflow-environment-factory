@@ -62,7 +62,7 @@ git clone https://github.com/rrrrrredy/workflow-environment-factory.git
 Set-Location workflow-environment-factory
 $env:WEF_NODE = 'C:\path\to\node-v22\node.exe'
 $env:WEF_PYTHON = 'C:\path\to\python.exe'
-.\scripts\Sync-Protocol.ps1 -ProtocolRoot C:\path\to\agent-run-protocol
+.\scripts\Sync-Protocol.ps1 -ProtocolRoot C:\path\to\runcase-interchange
 .\scripts\Install.ps1 -Open
 ```
 
@@ -114,7 +114,7 @@ The uninstaller resolves and validates the exact data path before recursive dele
 - React/Vite local workbench served by the Python service;
 - independent Codex plugin with raw-stdio MCP and one Skill;
 - local GitHub/Linear-style Issue/PR simulator with database/API validation;
-- Agent Run Protocol JSON Schemas as the only cross-product dependency.
+- RunCase Interchange JSON Schemas as the only cross-product dependency.
 
 Workflow Environment Factory does not share a service, database, queue, UI, executor, or product code with Runtime Evolution Workbench. See [architecture](docs/architecture.md).
 
