@@ -54,12 +54,22 @@ function Get-WefNpmCli([string]$NodePath) {
 
 function Invoke-WefNpm([string[]]$Arguments) {
   $node = Resolve-WefNode
-  & $node (Get-WefNpmCli $node) @Arguments
+  if (-not [string]::IsNullOrWhiteSpace($env:WEF_NODE)) {
+    & $node (Get-WefNpmCli $node) @Arguments
+  } else {
+    $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if ($null -eq $npm) { $npm = Get-Command npm -ErrorAction Stop }
+    & $npm.Source @Arguments
+  }
   if ($LASTEXITCODE -ne 0) { throw "npm failed with exit code $LASTEXITCODE" }
 }
 
 function Get-WefVenvPython {
-  return Join-Path $script:WefRoot ".venv\Scripts\python.exe"
+  $runningOnWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
+    [System.Runtime.InteropServices.OSPlatform]::Windows
+  )
+  if ($runningOnWindows) { return Join-Path $script:WefRoot ".venv\Scripts\python.exe" }
+  return Join-Path $script:WefRoot ".venv/bin/python"
 }
 
 function Initialize-WefVenv {

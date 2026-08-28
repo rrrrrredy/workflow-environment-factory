@@ -1,0 +1,74 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-product:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: product
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: product
+      - uses: actions/checkout@v4
+        with:
+          repository: rrrrrredy/agent-run-protocol
+          ref: v0.1.0
+          path: protocol
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: product/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: product/requirements.lock
+      - name: Check Windows product
+        run: |
+          $protocolRoot = (Resolve-Path ..\protocol).Path
+          .\scripts\Check.ps1 -InstallDependencies -ProtocolRoot $protocolRoot
+
+  docker-golden:
+    runs-on: ubuntu-latest
+    env:
+      WEF_DOCKER_GATE_IMAGE: python:3.11.16-slim-bookworm@sha256:0bee7276f83efd4a1ee05bbbf4281d95ed28e079220a9457f25a93e3f1e3c31b
+    defaults:
+      run:
+        working-directory: product
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: product
+      - uses: actions/checkout@v4
+        with:
+          repository: rrrrrredy/agent-run-protocol
+          ref: v0.1.0
+          path: protocol
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: product/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: product/requirements.lock
+      - name: Install pinned Codex CLI for doctor
+        run: npm install --global @openai/codex@0.150.0-alpha.8
+      - name: Run Docker code and Issue-to-PR gates
+        shell: pwsh
+        run: |
+          $protocolRoot = (Resolve-Path ../protocol).Path
+          ./scripts/Check.ps1 -InstallDependencies -RequireDocker -ProtocolRoot $protocolRoot

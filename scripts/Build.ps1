@@ -32,8 +32,8 @@ if ($InstallDependencies -or -not (Test-Path -LiteralPath (Join-Path $script:Wef
   }
 }
 
-$typescript = Join-Path $script:WefRoot "node_modules\typescript\bin\tsc"
-$vite = Join-Path $script:WefRoot "node_modules\vite\bin\vite.js"
+$typescript = Join-Path $script:WefRoot "node_modules/typescript/bin/tsc"
+$vite = Join-Path $script:WefRoot "node_modules/vite/bin/vite.js"
 foreach ($required in @($typescript, $vite)) {
   if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
     throw "Dependency missing: $required. Run scripts\Build.ps1 -InstallDependencies."

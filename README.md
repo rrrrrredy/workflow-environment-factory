@@ -132,7 +132,7 @@ $env:WEF_PYTHON = 'C:\path\to\python.exe'
 
 The regular check performs a strict React production build, locked Python dependency check, static analysis, the two focused golden scenarios, and plugin/MCP validation. Formal release packaging additionally requires an immutable Docker image in `WEF_DOCKER_GATE_IMAGE` and runs both verticals through the real Docker executor.
 
-Current evidence and remaining gates are listed in [acceptance](docs/acceptance.md). Contributions are welcome under [CONTRIBUTING.md](CONTRIBUTING.md); security reports follow [SECURITY.md](SECURITY.md).
+Current evidence and remaining gates are listed in [acceptance](docs/acceptance.md). The tag-to-release gates and fixed Docker input are documented in [release process](docs/release-process.md). Contributions are welcome under [CONTRIBUTING.md](CONTRIBUTING.md); security reports follow [SECURITY.md](SECURITY.md).
 
 ## License
 

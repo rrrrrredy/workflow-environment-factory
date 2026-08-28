@@ -15,14 +15,14 @@ Push-Location $script:WefRoot
 try {
   & $venvPython -m pip check
   if ($LASTEXITCODE -ne 0) { throw "Python dependency check failed." }
-  & $venvPython -m ruff check backend tests spikes\synthetic_server.py spikes\docker_gate.py
+  & $venvPython -m ruff check backend tests spikes/synthetic_server.py spikes/docker_gate.py
   if ($LASTEXITCODE -ne 0) { throw "Python static checks failed." }
   New-Item -ItemType Directory -Path (Join-Path $script:WefRoot ".runtime-data") -Force | Out-Null
   & $venvPython -m pytest --basetemp (Join-Path $script:WefRoot ".runtime-data\pytest") -q
   if ($LASTEXITCODE -ne 0) { throw "Golden scenario tests failed." }
   & $node (Join-Path $PSScriptRoot "validate-plugin.mjs")
   if ($LASTEXITCODE -ne 0) { throw "Plugin validation failed." }
-  & $node --check (Join-Path $script:WefRoot "plugins\workflow-environment-factory\scripts\mcp-server.mjs")
+  & $node --check (Join-Path $script:WefRoot "plugins/workflow-environment-factory/scripts/mcp-server.mjs")
   if ($LASTEXITCODE -ne 0) { throw "MCP server syntax check failed." }
   if ($RequireDocker) {
     $previousProtocol = [Environment]::GetEnvironmentVariable("WEF_PROTOCOL_SCHEMA_DIR", "Process")

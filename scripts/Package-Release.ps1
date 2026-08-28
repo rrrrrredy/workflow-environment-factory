@@ -66,7 +66,8 @@ try {
     } | ConvertTo-Json -Depth 4
     [System.IO.File]::WriteAllText((Join-Path $stageRoot ".runtime-deps\agent-run-protocol\dependency.json"), "$dependencyManifest`n")
 
-    $tar = Get-Command tar.exe -ErrorAction Stop
+    $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
+    if ($null -eq $tar) { $tar = Get-Command tar -ErrorAction Stop }
     & $tar.Source -a -c -f $archivePath -C $expanded $folderName
     if ($LASTEXITCODE -ne 0) { throw "Release archive creation failed." }
     $listing = (& $tar.Source -tf $archivePath | Out-String)
