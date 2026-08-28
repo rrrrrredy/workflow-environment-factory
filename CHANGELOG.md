@@ -7,6 +7,7 @@ All notable user-visible changes are documented here. The project follows Semant
 - Clean-Windows acceptance, real Codex Docker evidence, and public release are still pending.
 - Windows CI runs the complete non-Docker product check; isolated Linux CI runs both real Docker golden verticals with a fixed official-image digest.
 - Tag releases repeat the Docker gates, attach a checksum, and publish GitHub provenance.
+- The single browser golden scenario now has blocking assertions and runs in CI with screenshots kept as workflow evidence.
 
 ## [0.1.0] - 2026-08-28
 

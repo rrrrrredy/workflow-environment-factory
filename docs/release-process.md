@@ -13,13 +13,14 @@ The image is the Docker Official Image manifest digest returned by Docker Hub fo
 ## CI gates
 
 1. Windows builds the React product, installs the locked Python environment, runs all local golden tests, and validates the plugin.
-2. Ubuntu runs the same checks with Docker available.
-3. The Docker gate creates a fresh synthetic repository and confirmed Issue-to-PR demonstration.
-4. It generates one base Case plus two provenance-preserving variants for each vertical.
-5. Wrong code fails and correct code passes.
-6. Correct code without simulator state fails the Issue-to-PR Case; correct code plus linked PR and issue status passes.
-7. Every prepared Run is cleaned up.
+2. Windows also runs one asserted browser golden scenario covering recording, three Cases, task-pack export, timeout/not-scored separation, protocol import, and mobile overflow.
+3. Ubuntu runs the same checks with Docker available.
+4. The Docker gate creates a fresh synthetic repository and confirmed Issue-to-PR demonstration.
+5. It generates one base Case plus two provenance-preserving variants for each vertical.
+6. Wrong code fails and correct code passes.
+7. Correct code without simulator state fails the Issue-to-PR Case; correct code plus linked PR and issue status passes.
+8. Every prepared Run is cleaned up.
 
-The release workflow repeats the Docker gate rather than trusting an earlier workflow, builds the Windows source archive with compiled web assets and pinned protocol schemas, emits a SHA-256 file, and attaches GitHub build provenance.
+The release workflow repeats the Docker and browser gates rather than trusting an earlier workflow, builds the Windows source archive with compiled web assets and pinned protocol schemas, emits a SHA-256 file, and attaches GitHub build provenance.
 
 The release remains a technical preview until the separate fresh Windows installation, Codex execution, UI, uninstall, and no-residue acceptance is attached.

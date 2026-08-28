@@ -44,6 +44,15 @@ jobs:
           $version = "${{ github.ref_name }}".TrimStart("v")
           $protocolRoot = (Resolve-Path ../protocol).Path
           ./scripts/Package-Release.ps1 -Version $version -ProtocolRoot $protocolRoot -OutputDirectory (Join-Path $env:GITHUB_WORKSPACE "artifacts")
+      - name: Run release UI gate
+        working-directory: product
+        env:
+          WEF_UI_OUTPUT_DIR: ${{ runner.temp }}/factory-ui-evidence
+          WEF_PROBE_TMP_ROOT: ${{ runner.temp }}/factory-ui-data
+          WEF_PYTHON: ${{ github.workspace }}/product/.venv/bin/python
+        run: |
+          npx playwright install --with-deps chromium
+          npm run probe:ui
       - name: Attest release archive
         uses: actions/attest-build-provenance@v3
         with:

@@ -9,12 +9,13 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const scratchRoot = process.env.WEF_PROBE_TMP_ROOT ?? tmpdir();
 mkdirSync(scratchRoot, { recursive: true });
 const dataDir = mkdtempSync(join(scratchRoot, "wef-synthetic-ui-"));
-const outputDir = join(root, "docs", "images");
+const outputDir = resolve(process.env.WEF_UI_OUTPUT_DIR ?? join(root, "docs", "images"));
 const port = Number.parseInt(process.env.WEF_SYNTHETIC_PORT ?? "43141", 10);
 const python = process.env.WEF_PYTHON ?? "python";
 const require = createRequire(import.meta.url);
 const playwrightModule = process.env.WEF_PLAYWRIGHT_MODULE ?? "playwright";
 const { chromium } = require(playwrightModule);
+const browserChannel = process.env.WEF_BROWSER_CHANNEL;
 mkdirSync(outputDir, { recursive: true });
 
 const server = spawn(python, [join(root, "spikes", "synthetic_server.py")], {
@@ -50,7 +51,7 @@ let browser;
 try {
   await waitForHealth();
   const token = readFileSync(join(dataDir, "session-token"), "utf8").trim();
-  browser = await chromium.launch({ channel: "msedge", headless: true });
+  browser = await chromium.launch({ headless: true, ...(browserChannel ? { channel: browserChannel } : {}) });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const browserErrors = [];
   page.on("console", (message) => { if (message.type() === "error") browserErrors.push(message.text()); });
@@ -103,7 +104,7 @@ try {
     scrollWidth: document.documentElement.scrollWidth
   }));
 
-  process.stdout.write(`${JSON.stringify({
+  const result = {
     data: "fully synthetic",
     recordedOptionPresent,
     caseColumns,
@@ -115,11 +116,25 @@ try {
     noHorizontalOverflow: overflow.scrollWidth <= overflow.viewport,
     browserErrors,
     outputs: [
-      "docs/images/ui-desktop-case-factory-synthetic.png",
-      "docs/images/ui-desktop-runs-synthetic.png",
-      "docs/images/ui-mobile-runs-synthetic.png"
+      join(outputDir, "ui-desktop-case-factory-synthetic.png"),
+      join(outputDir, "ui-desktop-runs-synthetic.png"),
+      join(outputDir, "ui-mobile-runs-synthetic.png")
     ]
-  }, null, 2)}\n`);
+  };
+  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  if (
+    !result.recordedOptionPresent
+    || result.caseColumns !== 3
+    || !result.inspectorVisible
+    || result.taskPackCaseCount !== 3
+    || result.runCount !== 3
+    || !result.notScoredBoundaryVisible
+    || result.protocolImportCount !== 1
+    || !result.noHorizontalOverflow
+    || result.browserErrors.length > 0
+  ) {
+    throw new Error("Synthetic Workflow Factory UI acceptance failed");
+  }
 } finally {
   if (browser) await browser.close();
   if (server.exitCode === null) {
