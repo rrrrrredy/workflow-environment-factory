@@ -20,6 +20,13 @@ function Invoke-CodexText([string[]]$Arguments) {
   return $text
 }
 
+function Get-AcceptanceCodexVersion {
+  $output = Invoke-CodexText @("--version")
+  $lines = @(($output -split "\r?\n") | Where-Object { $_.Trim() -match '^codex-cli\s+\S+$' })
+  if ($lines.Count -ne 1) { throw "Could not isolate one Codex CLI version line from command output." }
+  return $lines[0].Trim()
+}
+
 function Start-AcceptancePortBlocker([string]$Node, [string]$ScriptPath, [int]$ListenPort) {
   $quotedScriptPath = '"' + $ScriptPath.Replace('"', '\"') + '"'
   $process = Start-Process -FilePath $Node -ArgumentList @($quotedScriptPath, [string]$ListenPort) -WindowStyle Hidden -PassThru
@@ -202,7 +209,7 @@ createServer((_request, response) => {
     os_version = [Environment]::OSVersion.VersionString
     node_version = (& (Resolve-WefNode) -p "process.versions.node").Trim()
     python_version = (& (Resolve-WefPython) -c "import platform; print(platform.python_version())").Trim()
-    codex_version = (Invoke-CodexText @("--version")).Trim()
+    codex_version = Get-AcceptanceCodexVersion
     docker_server = $dockerVersion
     checks = [ordered]@{
       clean_isolated_codex_home = $true
