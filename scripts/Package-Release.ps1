@@ -9,6 +9,8 @@ param(
 if (-not [string]::IsNullOrWhiteSpace($ProtocolRoot)) {
   & (Join-Path $PSScriptRoot "Sync-Protocol.ps1") -ProtocolRoot $ProtocolRoot
 }
+& (Join-Path $PSScriptRoot "Verify-ReleaseEvidence.ps1") -Version $Version
+if ($LASTEXITCODE -ne 0) { throw "Authenticated real Codex release evidence is invalid." }
 & (Join-Path $PSScriptRoot "Check.ps1") -InstallDependencies -RequireDocker -ProtocolRoot $ProtocolRoot
 if ($LASTEXITCODE -ne 0) { throw "Release checks failed." }
 
@@ -27,6 +29,7 @@ try {
   if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') { throw "Could not resolve release commit." }
 
   $schemaDirectory = Get-WefProtocolDir
+  $productEvidencePath = Join-Path $script:WefRoot "release-evidence\workflow-product-gate-$Version.json"
   foreach ($schema in @("agent.run.v1.schema.json", "workflow.case.v1.schema.json", "workflow.score.v1.schema.json")) {
     if (-not (Test-Path -LiteralPath (Join-Path $schemaDirectory $schema) -PathType Leaf)) {
       throw "Release dependency is missing: $schema"
@@ -89,6 +92,7 @@ try {
     foreach ($required in @(
       "$folderName/.agents/plugins/marketplace.json",
       "$folderName/release-source.json",
+      "$folderName/release-evidence/workflow-product-gate-$Version.json",
       "$folderName/scripts/Acceptance-InstallUninstall.ps1",
       "$folderName/plugins/workflow-environment-factory/.codex-plugin/plugin.json",
       "$folderName/dist/web/index.html",
@@ -110,6 +114,7 @@ try {
   }
 
   $checksum = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $productEvidenceHash = (Get-FileHash -LiteralPath $productEvidencePath -Algorithm SHA256).Hash.ToLowerInvariant()
   [System.IO.File]::WriteAllText($checksumPath, "$checksum  workflow-environment-factory-$Version-windows-x64.zip`n")
   $protocolHashes = [ordered]@{}
   foreach ($schema in @("agent.run.v1.schema.json", "workflow.case.v1.schema.json", "workflow.score.v1.schema.json")) {
@@ -125,6 +130,10 @@ try {
       schema_sha256 = $protocolHashes
     }
     docker_gate_image = [string]$env:WEF_DOCKER_GATE_IMAGE
+    real_codex_evidence = [ordered]@{
+      file = "release-evidence/workflow-product-gate-$Version.json"
+      sha256 = $productEvidenceHash
+    }
     archive = [ordered]@{
       file = [System.IO.Path]::GetFileName($archivePath)
       sha256 = $checksum

@@ -62,7 +62,21 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
     services.factory.cleanup_run(failed_run.run_id)
 
     passing_run = services.factory.prepare_run(cases[2].case_id)
-    make_code_correct(Path(passing_run.workspace_path))
+    passing_workspace = Path(passing_run.workspace_path)
+    assert not (passing_workspace / ".git").exists()
+    git_dir = services.git.isolated_git_dir(passing_workspace)
+    assert git_dir.is_dir()
+    assert services.git.run_isolated(passing_workspace, ["remote"]).stdout.strip() == ""
+    assert not (git_dir / "objects" / "info" / "alternates").exists()
+    solution_probe = services.git.run_isolated(
+        passing_workspace, ["cat-file", "-e", f"{repository_fixture.solution_commit}^{{commit}}"]
+    )
+    assert solution_probe.exit_code != 0
+    unexpected = passing_workspace / "outside-allowed-path.txt"
+    unexpected.write_text("must be scored", encoding="utf-8")
+    assert services.git.changed_paths(passing_workspace, "HEAD") == ["outside-allowed-path.txt"]
+    unexpected.unlink()
+    make_code_correct(passing_workspace)
     passing_score = services.scorer.score(passing_run.run_id)
     assert passing_score["task_result"] == {
         "status": "pass",

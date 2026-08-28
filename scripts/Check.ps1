@@ -15,7 +15,7 @@ Push-Location $script:WefRoot
 try {
   & $venvPython -m pip check
   if ($LASTEXITCODE -ne 0) { throw "Python dependency check failed." }
-  & $venvPython -m ruff check backend tests spikes/synthetic_server.py spikes/docker_gate.py
+  & $venvPython -m ruff check backend tests spikes/synthetic_server.py spikes/docker_gate.py spikes/real_codex_gate.py
   if ($LASTEXITCODE -ne 0) { throw "Python static checks failed." }
   New-Item -ItemType Directory -Path (Join-Path $script:WefRoot ".runtime-data") -Force | Out-Null
   & $venvPython -m pytest --basetemp (Join-Path $script:WefRoot ".runtime-data\pytest") -q

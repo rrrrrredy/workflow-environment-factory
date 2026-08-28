@@ -5,7 +5,7 @@ import { join } from "node:path";
 const tools = [
   {
     name: "wef_get_run",
-    description: "Read one factory Run and its generated Case context. A returned score is evidence from the factory, not something this tool can change.",
+    description: "Read one factory Run and the bounded Agent-safe Case context needed to complete it.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -15,7 +15,7 @@ const tools = [
   },
   {
     name: "wef_get_case",
-    description: "Read one validated workflow.case.v1 document, including goal, allowed tools, writable paths, provenance, and validators.",
+    description: "Read the bounded Agent-safe view of one validated Case. Known-correct refs and factory-only evidence are omitted.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -112,8 +112,8 @@ async function api(path, options = {}) {
 
 async function callTool(name, args) {
   const runId = args.run_id ? encodeURIComponent(args.run_id) : "";
-  if (name === "wef_get_run") return api(`/api/runs/${runId}`);
-  if (name === "wef_get_case") return api(`/api/cases/${encodeURIComponent(args.case_id)}`);
+  if (name === "wef_get_run") return api(`/api/agent/runs/${runId}`);
+  if (name === "wef_get_case") return api(`/api/agent/cases/${encodeURIComponent(args.case_id)}`);
   if (name === "wef_get_issue") {
     return api(`/api/simulator/runs/${runId}/issues/${encodeURIComponent(args.issue_key)}`);
   }

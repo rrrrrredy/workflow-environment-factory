@@ -114,19 +114,8 @@ class ScoreService:
         execution_status = "completed"
         failure_stage: str | None = None
 
-        verifier = self.engine.run(
-            workspace,
-            blueprint.payload.container_image,
-            blueprint.payload.verifier.argv,
-            blueprint.payload.verifier.timeout_ms,
-        )
-        if verifier.status in {"error", "timeout"}:
-            execution_status = "validator_error"
-            failure_stage = "validating"
-        validation_rows.append(self._command_validation(verifier))
-
         try:
-            changed_paths = self.git.changed_paths(workspace, blueprint.base_commit)
+            changed_paths = self.git.changed_paths(workspace, "HEAD")
             paths_pass = bool(changed_paths) and all(
                 _path_allowed(path, blueprint.payload.allowed_paths) for path in changed_paths
             )
@@ -163,6 +152,17 @@ class ScoreService:
                     "evidence": [{"kind": "text", "summary": "Git changed-path validation failed.", "redacted": True}],
                 }
             )
+
+        verifier = self.engine.run(
+            workspace,
+            blueprint.payload.container_image,
+            blueprint.payload.verifier.argv,
+            blueprint.payload.verifier.timeout_ms,
+        )
+        if verifier.status in {"error", "timeout"}:
+            execution_status = "validator_error"
+            failure_stage = "validating"
+        validation_rows.append(self._command_validation(verifier))
 
         if blueprint.payload.kind == BlueprintKind.ISSUE_PR:
             assert blueprint.payload.issue is not None

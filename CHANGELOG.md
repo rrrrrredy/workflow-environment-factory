@@ -4,6 +4,9 @@ All notable user-visible changes are documented here. The project follows Semant
 
 ## [Unreleased]
 
+- Agent Runs now use a shallow, standalone Git object database outside the writable workspace; known-correct objects, remotes, alternates, and `.git` markers are absent, while tracked and untracked changes are both scored.
+- MCP Run/Case reads now use Agent-specific views that omit known-correct refs, patch digests, provenance, full gate evidence, and scores while preserving complete user-facing audit/export data.
+- Release packaging now requires sanitized, commit-bound evidence from one real Codex code Run and one real Codex Issue-to-PR Run, including required simulator actions and proof that the temporary installation was fully removed.
 - The repeatable clean-Windows installation lifecycle is implemented; hosted execution, single-host Windows 11 Docker Desktop acceptance, real Codex Docker evidence, and public release are still pending.
 - Windows CI runs the complete non-Docker product check; isolated Linux CI runs both real Docker golden verticals with a fixed official-image digest.
 - Tag releases repeat the Docker gates, attach a checksum plus a commit/protocol/Docker-bound manifest, require a fresh Windows installation job, and publish GitHub provenance.
@@ -16,7 +19,7 @@ All notable user-visible changes are documented here. The project follows Semant
 
 - Blueprint, Case Factory, and Runs & Scores local product surfaces.
 - Code and recorded Issue-to-PR verticals with a base Case and exactly two confirmed variants.
-- Git worktree and SQLite snapshot resets with objective positive/negative generation gates.
+- Isolated Git and SQLite Run resets with objective positive/negative generation gates.
 - Docker verifier boundary and a release-only real Docker integration gate.
 - Codex plugin with one bounded Skill and six local simulator MCP tools.
 - Agent timeout/crash, environment/reset error, validator error, and task result separation.

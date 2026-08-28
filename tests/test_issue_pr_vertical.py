@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from conftest import RepositoryFixture, make_code_correct
+from fastapi.testclient import TestClient
+from workflow_environment_factory.app import create_app
 from workflow_environment_factory.models import BlueprintCreate, RecordingEvent
 
 
@@ -65,6 +67,17 @@ def test_recorded_issue_pr_case_requires_code_and_database_state(services, repos
     assert all("programmatic correct Issue/PR state passed" in case.validation.details for case in cases)
     assert cases[0].protocol_case["provenance"]["kind"] == "recorded_workflow"
     assert len(cases[0].protocol_case["validators"]) == 3
+
+    with TestClient(create_app(services)) as client:
+        token = services.settings.token_path.read_text(encoding="utf-8").strip()
+        agent_case = client.get(
+            f"/api/agent/cases/{cases[0].case_id}", headers={"authorization": f"Bearer {token}"}
+        )
+        assert agent_case.status_code == 200
+        agent_payload = agent_case.text
+        assert repository_fixture.solution_commit not in agent_payload
+        assert blueprint.solution_patch_digest not in agent_payload
+        assert "provenance" not in agent_case.json()
 
     wrong_run = services.factory.prepare_run(cases[0].case_id)
     make_code_correct(Path(wrong_run.workspace_path))

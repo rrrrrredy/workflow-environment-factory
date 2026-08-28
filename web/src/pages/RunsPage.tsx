@@ -190,7 +190,7 @@ export function RunsPage({ cases, runs, onChanged, onError }: Props) {
         <div>
           <span className="section-kicker">Fresh attempt</span>
           <h2>Choose a gated Case</h2>
-          <p>Every click creates a new Git worktree and, for Issue → PR, a new simulator database.</p>
+          <p>Every click creates a new isolated Git snapshot and, for Issue → PR, a new simulator database.</p>
         </div>
         <select value={caseId} onChange={(event) => setCaseId(event.target.value)} aria-label="Case to prepare">
           {!runnableCases.length ? <option value="">Generate a gated Case first</option> : null}

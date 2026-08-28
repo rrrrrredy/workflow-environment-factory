@@ -43,6 +43,7 @@ jobs:
           $version = "${{ github.ref_name }}".TrimStart("v")
           $protocolRoot = (Resolve-Path ../protocol).Path
           ./scripts/Package-Release.ps1 -Version $version -ProtocolRoot $protocolRoot -OutputDirectory (Join-Path $env:GITHUB_WORKSPACE "candidate")
+          Copy-Item -LiteralPath ".\release-evidence\workflow-product-gate-$version.json" -Destination (Join-Path $env:GITHUB_WORKSPACE "candidate") -Force
       - name: Run release UI gate
         working-directory: product
         env:
@@ -123,6 +124,7 @@ jobs:
             artifacts/*.zip
             artifacts/*.sha256
             artifacts/*.release.json
+            artifacts/workflow-product-gate-*.json
             artifacts/factory-installation-evidence.json
       - name: Publish GitHub Release
         env:

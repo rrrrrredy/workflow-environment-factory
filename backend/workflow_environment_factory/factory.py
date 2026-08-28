@@ -262,25 +262,25 @@ class CaseFactory:
             ],
             "environment": {
                 "kind": "code" if payload.kind == BlueprintKind.CODE else "hybrid",
-                "summary": f"Fresh Git worktree validated in container image {payload.container_image}"
+                "summary": f"Fresh isolated Git snapshot validated in container image {payload.container_image}"
                 + (" with a fresh local Issue/PR SQLite snapshot" if payload.kind == BlueprintKind.ISSUE_PR else ""),
                 "build_ref": f"container-image:{payload.container_image}",
                 "digest": _sha256_json(environment_basis),
                 "repository": {"source_ref": repository_urn, "base_revision": blueprint.base_commit},
                 "initialize": [
                     {
-                        "step_id": "create-worktree",
+                        "step_id": "create-isolated-snapshot",
                         "kind": "snapshot",
-                        "executor_ref": "git.worktree.add.v1",
+                        "executor_ref": "factory.isolated-git-snapshot.v1",
                         "parameters": {"revision": blueprint.base_commit},
                         "timeout_ms": 120_000,
                     }
                 ],
                 "reset": [
                     {
-                        "step_id": "fresh-worktree",
+                        "step_id": "fresh-isolated-snapshot",
                         "kind": "snapshot",
-                        "executor_ref": "git.worktree.add.v1",
+                        "executor_ref": "factory.isolated-git-snapshot.v1",
                         "parameters": {"revision": blueprint.base_commit, "variant_index": index},
                         "timeout_ms": 120_000,
                     }
@@ -518,7 +518,7 @@ class CaseFactory:
         workspace: Path | None = None
         database_path: Path | None = None
         try:
-            workspace, _ = self.git.materialize(
+            workspace, _ = self.git.materialize_isolated(
                 Path(blueprint.repository_root),
                 blueprint.base_commit,
                 run.run_id,
@@ -547,7 +547,7 @@ class CaseFactory:
             cleanup_errors: list[str] = []
             if workspace is not None:
                 try:
-                    self.git.remove(Path(blueprint.repository_root), workspace)
+                    self.git.remove_isolated(workspace)
                 except Exception as cleanup_error:
                     cleanup_errors.append(str(cleanup_error))
             if database_path is not None:
@@ -570,7 +570,7 @@ class CaseFactory:
         cleanup_errors: list[str] = []
         if run.workspace_path:
             try:
-                self.git.remove(Path(blueprint.repository_root), Path(run.workspace_path))
+                self.git.remove_isolated(Path(run.workspace_path))
             except Exception as error:
                 cleanup_errors.append(str(error))
         if run.simulator_database_path:

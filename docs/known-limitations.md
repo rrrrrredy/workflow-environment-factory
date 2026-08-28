@@ -12,6 +12,7 @@
 - A code vertical needs a real failing baseline commit and a descendant known-correct commit. The factory does not invent a correct answer.
 - Variant generation is deliberately limited to one confirmed string variable, two confirmed replacement values, and confirmed repository-relative text files.
 - Binary files, AST transformations, database migrations, multi-repository tasks, merge-conflict tasks, and arbitrary LLM-generated variants are not supported.
+- Git submodules and Git LFS materialization are not supported in 0.1. Safe in-workspace symbolic links require Windows symbolic-link support; links that resolve outside the Run workspace are rejected.
 - Passing the known negative/positive gate proves discrimination for those states only. It does not prove realism or general model quality.
 - Container references must include a digest; the product does not select or trust an image for the user.
 
@@ -27,8 +28,9 @@
 - Every Score represents one attempt. Repeatability and statistical evaluation are not inferred.
 - The product records Codex JSONL output, not hidden reasoning.
 - Token and monetary-cost extraction is not implemented in 0.1.
-- Workspace cleanup is explicit so a user can inspect a completed attempt. Until cleanup, worktrees and simulator snapshots consume disk space.
-- A validator command is user-supplied and runs inside the selected Docker image with the worktree mounted writable.
+- Workspace cleanup is explicit so a user can inspect a completed attempt. Until cleanup, isolated working directories, shallow Git state, and simulator snapshots consume disk space.
+- A validator command is user-supplied and runs inside the selected Docker image with the working directory mounted writable. Baseline repository tests remain visible to Codex; 0.1 is not a hidden-test service.
+- Git metadata is outside the Codex writable workspace. Read-only commands such as status and diff are supported; tasks must not require Codex to create a real local commit.
 
 ## Packaging
 

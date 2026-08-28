@@ -8,6 +8,7 @@ Passing a build is not product acceptance. The 0.1 release requires two real gol
 |---|---|---|
 | Strict frontend production build | Passed | TypeScript strict check and Vite production bundle |
 | Focused backend golden scenarios | Passed | Three tests cover API auth, code vertical, and recorded Issue-to-PR vertical using the explicit local test engine |
+| Agent answer-isolation regression | Passed | Agent Run has no `.git`, remote, alternates, or known-correct object; MCP Agent view omits solution commit and patch digest; untracked paths are scored |
 | Plugin and MCP structure | Passed | Official plugin validator, Skill validator, local structure validator, Node syntax, and MCP initialize/tools handshake |
 | Synthetic real-browser product flow | Passed | Local recording, three Case columns, inspector, three Runs, `not_scored` timeout boundary, mobile no-overflow, and zero console errors in Edge/Playwright |
 | Service lifecycle | Passed | Background start, authenticated health, verified-PID stop, and exact temporary-data cleanup |
@@ -38,12 +39,29 @@ $env:WEF_DOCKER_GATE_IMAGE = 'python@sha256:<reviewed-real-digest>'
 .\scripts\Check.ps1 -RequireDocker
 ```
 
-The gate creates temporary local data and executes both product verticals through `DockerEngine`:
+The gate creates temporary local data and executes both environment/verifier verticals through `DockerEngine`:
 
 - code: 3/3 generated Cases pass baseline-fail, correct-pass, and reset equality; a wrong Run fails and a corrected Run passes;
 - Issue-to-PR: 3/3 generated Cases pass code, simulator negative/positive, reset, and provenance gates; correct code without PR/status fails; correct code plus linked PR and target status passes.
 
 The temporary path is resolved under the repository's ignored `.runtime-data\docker-gate-*` prefix before recursive cleanup.
+
+This deterministic gate applies the known correct code and simulator state programmatically. It proves reset, discrimination, provenance, Docker containment, and scoring; it is not evidence that Codex completed either task.
+
+## Release-only real Codex gate
+
+On a clean Windows 11 checkout with authenticated Codex and Docker Desktop, set the reviewed image and run:
+
+```powershell
+$env:WEF_NODE = 'C:\path\to\node-v22\node.exe'
+$env:WEF_PYTHON = 'C:\path\to\python.exe'
+$env:WEF_DOCKER_GATE_IMAGE = 'python:3.11.16-slim-bookworm@sha256:0bee7276f83efd4a1ee05bbbf4281d95ed28e079220a9457f25a93e3f1e3c31b'
+.\scripts\Prepare-ReleaseEvidence.ps1 -Version 0.1.0 -ProtocolRoot C:\path\to\runcase-interchange
+```
+
+The script refuses a dirty checkout or an existing product installation. It temporarily installs the real plugin, starts the loopback service with disposable data, asks authenticated Codex to complete one code Case and one Issue-to-PR Case, runs Docker-backed scoring, proves the known-correct object is absent, validates MCP simulator actions, cleans both Runs, then uninstalls and proves that plugin, marketplace, service, Startup entry, and data are absent. It writes only a sanitized, commit-bound JSON evidence file; prompts, repository contents, credentials, and local paths are excluded.
+
+The evidence is single-run proof for two golden tasks, not a model-quality benchmark. Review and commit only `release-evidence/workflow-product-gate-0.1.0.json`, then run `scripts\Verify-ReleaseEvidence.ps1` before tagging.
 
 ## Synthetic browser probe
 
@@ -68,7 +86,7 @@ Expected assertions:
 - Service restart while a Run is preparing, running, or validating becomes `environment_error`.
 - Agent timeout and crash produce `not_scored`, with no objective validator inferred.
 - Docker timeout removes the named container.
-- Failed reset records `reset_error` and attempts exact worktree/simulator cleanup.
+- Failed reset records `reset_error` and attempts exact isolated workspace/Git-state and simulator cleanup.
 - Verifier infrastructure error is not converted into a failed task.
 - Updating a Run after scoring does not delete its Score.
 - Secret-like runner and verifier output is redacted before durable storage.
@@ -84,6 +102,7 @@ Expected assertions:
 5. Complete one real code Blueprint with a base Case and two valid variants.
 6. Complete one local Issue-to-PR recording, Blueprint, base Case, and two valid variants.
 7. Execute Codex on one wrong and one correct path for each vertical and inspect objective Scores.
+   Confirm the Agent-safe MCP response omits the known-correct commit and patch digest, and `git cat-file` cannot read the known-correct object from the Run.
 8. Stop and restart the service; verify retained documents and interrupted-Run recovery.
 9. Export and validate a Case, Score, and task pack with RunCase Interchange tooling.
 10. Uninstall without deleting data; confirm plugin, marketplace, service, and startup state are gone.

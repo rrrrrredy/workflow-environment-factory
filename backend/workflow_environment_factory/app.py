@@ -53,6 +53,34 @@ def _bearer(value: str | None) -> str | None:
     return value[7:].strip()
 
 
+def _agent_case_view(case: Any) -> dict[str, Any]:
+    document = case.protocol_case
+    environment = document["environment"]
+    return {
+        "case_id": str(case.case_id),
+        "title": document["title"],
+        "goal": document["goal"],
+        "variables": document["variables"],
+        "environment": {
+            "kind": environment["kind"],
+            "summary": environment["summary"],
+            **({"start_urls": environment["start_urls"]} if "start_urls" in environment else {}),
+        },
+        "allowed_tools": document["allowed_tools"],
+        "validators": [
+            {
+                "validator_id": validator["validator_id"],
+                "kind": validator["kind"],
+                "objective": validator["objective"],
+                "required": validator["required"],
+            }
+            for validator in document["validators"]
+        ],
+        "safety": document["safety"],
+        "single_run_evidence": True,
+    }
+
+
 def create_app(services: Services) -> FastAPI:
     app = FastAPI(title="Workflow Environment Factory", version="0.1.0", docs_url=None, redoc_url=None)
     session_token = load_or_create_token(services.settings.token_path)
@@ -193,6 +221,13 @@ def create_app(services: Services) -> FastAPI:
             raise HTTPException(404, "case not found")
         return case
 
+    @app.get("/api/agent/cases/{case_id}")
+    async def get_agent_case(case_id: UUID) -> Any:
+        case = services.store.get_case(case_id)
+        if case is None:
+            raise HTTPException(404, "case not found")
+        return _agent_case_view(case)
+
     @app.get("/api/cases/{case_id}/export")
     async def export_case(case_id: UUID) -> Any:
         case = services.store.get_case(case_id)
@@ -266,6 +301,26 @@ def create_app(services: Services) -> FastAPI:
         if run is None:
             raise HTTPException(404, "run not found")
         return {"run": run, "score": services.store.get_score_for_run(run_id)}
+
+    @app.get("/api/agent/runs/{run_id}")
+    async def get_agent_run(run_id: UUID) -> Any:
+        run = services.store.get_run(run_id)
+        if run is None:
+            raise HTTPException(404, "run not found")
+        case = services.store.get_case(run.case_id)
+        if case is None:
+            raise HTTPException(404, "run case not found")
+        return {
+            "run": {
+                "run_id": str(run.run_id),
+                "case_id": str(run.case_id),
+                "status": run.status,
+                "workspace_path": run.workspace_path,
+                "started_at": run.started_at,
+                "completed_at": run.completed_at,
+            },
+            "case": _agent_case_view(case),
+        }
 
     def execute_and_score(run_id: UUID) -> None:
         try:

@@ -12,7 +12,7 @@ Workflow Environment Factory handles repository code, local paths, Agent events,
 | Score | Objective validations, execution status, time, and single-run caveat | Local SQLite | `workflow.score.v1` through the UI or local API |
 | Verifier output | Redacted stdout, stderr, and exit code | SHA-256 local content store | By content reference when explicitly requested |
 | Demonstration | Four structured local simulator actions and explicit confirmation | Local SQLite | Included by reference in Case provenance |
-| Git worktree | Fresh Agent task state | Product data directory | Removed on explicit Run cleanup |
+| Isolated Git snapshot | Fresh Agent files plus a separate shallow baseline object database | Product data directory | Both removed on explicit Run cleanup |
 | Simulator database | Fresh Issue/PR state for one Run | Product data directory | Removed on explicit Run cleanup |
 
 No cloud database, analytics SDK, telemetry endpoint, or team service is included.
@@ -48,19 +48,21 @@ The verifier uses an immutable `image@sha256` reference and starts Docker with:
 - `--pids-limit 128`;
 - a read-only container filesystem;
 - a `noexec,nosuid` temporary filesystem;
-- only the fresh worktree mounted at `/workspace`.
+- only the fresh Agent working directory mounted at `/workspace`; its external Git object database is not mounted.
 
 The mounted workspace is writable because objective tests often produce files. The host Docker daemon remains a privileged dependency; a malicious image or daemon compromise is outside this application's security boundary. Review image provenance and verifier commands.
 
 ## Codex boundary
 
-Codex runs with `workspace-write` inside a fresh worktree and `--approve-for-me`. In 0.1 it uses the user's active Codex installation and configuration. The factory's Skill instructs Codex not to read the solution, validator implementation, other Runs, or product data, and the plugin exposes no score mutation tool. These instructions do not turn the host OS into a hard sandbox. Use a dedicated Windows user or VM for hostile repositories.
+Codex runs with `workspace-write` inside a fresh isolated working directory and `--approve-for-me`. The working directory contains no `.git` marker, remote, alternate object store, or known-correct descendant object. A separate shallow Git directory contains the baseline and is supplied through environment variables with optional Git locks disabled. Agent-specific MCP routes omit the solution commit, patch digest, provenance, full gate evidence, and score; user-facing workbench/export routes retain them.
+
+Repository files present at the baseline, including ordinary tests or verifier scripts, remain visible. This product does not claim hidden-test security. In 0.1 Codex also uses the user's active installation and configuration. The Skill and API minimization reduce accidental leakage, but they do not turn the same OS user into a hard security boundary. Use a dedicated Windows user or VM for hostile repositories.
 
 The product records visible Codex JSONL events. It does not claim to read hidden reasoning.
 
 ## File-system cleanup
 
-- Worktrees must resolve under the configured worktree root before removal.
+- Internal gate worktrees and isolated Run workspace/Git-state directories must resolve under the configured product root before removal.
 - Simulator snapshots must resolve under the configured simulator root; only the exact database, its SQLite sidecars, and an empty per-Run directory are removed.
 - The uninstaller validates the full data path and refuses broad recursive targets.
 - A score remains stored when a Run record is updated; updates use SQLite conflict-update semantics rather than delete-and-reinsert.

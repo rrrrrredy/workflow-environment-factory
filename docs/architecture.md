@@ -8,7 +8,7 @@ flowchart LR
     UI --> API[FastAPI on 127.0.0.1]
     API --> DB[(Local SQLite)]
     API --> Factory[Case Factory]
-    Factory --> Git[Fresh Git worktrees]
+    Factory --> Git[Gate worktrees and isolated Run snapshots]
     Factory --> Docker[Network-disabled Docker verifier]
     Factory --> Sim[(Local Issue/PR simulator)]
     API --> Runner[Codex runner]
@@ -35,11 +35,13 @@ Generation creates three protocol documents:
 - index 0: source Case from repository commits or a confirmed workflow recording;
 - index 1 and 2: derived Cases with the source Case as parent and a stored transformation record.
 
-Every Case creates two fresh baseline worktrees, compares their state fingerprints, executes the baseline verifier, and executes the correct-state verifier. Issue-to-PR also creates two fresh simulator databases and proves negative and positive state assertions.
+Every Case creates two short-lived baseline worktrees for factory-only gating, compares their state fingerprints, executes the baseline verifier, and executes the correct-state verifier. Issue-to-PR also creates two fresh simulator databases and proves negative and positive state assertions. These generation worktrees are never passed to Codex.
 
 ### Run and Score
 
-Preparing a Run never reuses a prior workspace or simulator snapshot. Codex emits JSONL events that are redacted before storage. After Codex exits, scoring reruns the objective verifier, checks changed paths, and checks the simulator database when required.
+Preparing a Run never reuses a prior workspace or simulator snapshot. The factory shallow-fetches only the selected baseline into a new object database, checks out a separate working directory with no `.git` marker, removes the temporary fetch ref, and commits the confirmed variant as `HEAD`. There is no remote, alternate object store, or known-correct descendant object. Git metadata stays outside Codex's writable workspace; `GIT_DIR`, `GIT_WORK_TREE`, and `GIT_OPTIONAL_LOCKS=0` provide bounded Git reads without making that metadata part of the workspace.
+
+Codex emits JSONL events that are redacted before storage. Before the verifier runs, scoring freezes tracked and untracked changed paths against the isolated `HEAD`; verifier-created cache files therefore cannot be mistaken for Agent changes. It then executes the objective verifier and checks the simulator database when required.
 
 Execution and task result are separate protocol fields:
 
@@ -50,7 +52,7 @@ Execution and task result are separate protocol fields:
 
 ### Codex plugin
 
-The plugin has no database or executor. It reads the local token and calls the product API. Its six tools can read a Run/Case, read the local Issue, list/create local PRs, and update local Issue status. There is no tool for preparing a Case, changing provenance, changing a validator, scoring, or publishing a result.
+The plugin has no database or executor. It reads the local token and calls Agent-specific API routes. Its six tools can read bounded Run/Case views, read the local Issue, list/create local PRs, and update local Issue status. The Agent views omit provenance, known-correct commit refs, patch digests, full validation evidence, and scores; the workbench and export routes retain that evidence for the user. There is no tool for preparing a Case, changing provenance, changing a validator, scoring, or publishing a result.
 
 ### Protocol dependency
 
@@ -61,7 +63,7 @@ The source checkout keeps synced schemas under ignored `.runtime-deps`. Release 
 - A process restart converts preparing/running/validating Runs to `environment_error` instead of pretending the task failed.
 - Docker timeout removes the named container before returning timeout evidence.
 - Failed Run preparation attempts best-effort cleanup and retains cleanup failure text.
-- Worktree and simulator cleanup are independent so one error does not silently skip the other.
+- Isolated workspace/Git-state cleanup and simulator cleanup are independent so one error does not silently skip the other.
 - The service PID is checked against the exact virtual-environment Python and expected module before it is stopped.
 
 ## Why no shared service

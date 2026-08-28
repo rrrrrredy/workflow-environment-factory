@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from uuid import UUID
 
+from .gitops import GitWorkspaceManager
 from .models import BlueprintKind, RunStatus, utc_now
 from .redaction import redact
 from .store import FactoryStore
@@ -55,9 +56,11 @@ class CodexRunner:
         started = time.monotonic()
         process: subprocess.Popen[str] | None = None
         try:
+            environment = GitWorkspaceManager.isolated_environment(Path(run.workspace_path))
             process = subprocess.Popen(
                 command,
                 cwd=Path(run.workspace_path),
+                env=environment,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
