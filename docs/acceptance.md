@@ -7,7 +7,7 @@ Passing a build is not product acceptance. The 0.1 release requires two real gol
 | Gate | Status on 2026-08-28 | Evidence boundary |
 |---|---|---|
 | Strict frontend production build | Passed | TypeScript strict check and Vite production bundle |
-| Focused backend golden scenarios | Passed | Six tests cover API auth, code vertical, recorded Issue-to-PR, answer isolation, no-model App Server preflight, hardened Codex command settings, and failure classification using the explicit local test engine or fake App Server |
+| Focused backend golden scenarios | Passed | Nine tests cover API auth, code vertical, recorded Issue-to-PR, answer isolation, no-model App Server preflight, hardened Codex command settings, side-effect-free doctor configuration, data-root ownership, and failure classification using the explicit local test engine or fake App Server |
 | Agent answer-isolation regression | Passed | Agent Run has no `.git`, remote, alternates, or known-correct object; MCP Agent view omits solution commit and patch digest; untracked paths are scored |
 | Plugin and MCP structure | Passed | Official plugin validator, Skill validator, local structure validator, Node syntax, and MCP initialize/tools handshake |
 | Synthetic real-browser product flow | Passed | Local recording, three Case columns, inspector, three Runs, `not_scored` timeout boundary, mobile no-overflow, and zero console errors in Edge/Playwright |
@@ -111,6 +111,8 @@ Expected assertions:
 10. Uninstall without deleting data; confirm plugin, marketplace, service, and startup state are gone.
 11. Optionally reinstall and prove preserved data reopens.
 12. Uninstall with a dedicated disposable data directory and `-DeleteData`; verify only that exact directory is removed.
+13. Occupy the configured port before a first install and a later `-Repair`; verify the first leaves no new product state and the second restores the prior plugin, marketplace, Startup shortcut, and data.
+14. Require the machine-readable installation-state audit to pass after normal removal and again with no data after explicit deletion.
 
 Store command output, protocol files, screenshots containing synthetic or deliberately non-sensitive data, and the clean-environment description with the release evidence. Do not replace these steps with a build badge.
 

@@ -66,7 +66,6 @@ try {
   if (Test-Path -LiteralPath $evidencePath -PathType Leaf) { Remove-Item -LiteralPath $evidencePath -Force }
 
   $gateData = Join-Path ([System.IO.Path]::GetTempPath()) "wef-real-codex-gate-$([Guid]::NewGuid().ToString('N'))"
-  New-Item -ItemType Directory -Path $gateData | Out-Null
   $previousPath = $env:PATH
   $environmentNames = @("WEF_REAL_GATE_DATA_DIR", "WEF_REAL_GATE_OUTPUT", "WEF_REAL_GATE_PORT")
   $previousEnvironment = @{}

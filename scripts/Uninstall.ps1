@@ -40,19 +40,12 @@ if ($null -ne $codexCommand) {
 }
 
 if ($DeleteData -and (Test-Path -LiteralPath $resolvedDataDir -PathType Container)) {
-  $dataFullPath = [System.IO.Path]::GetFullPath($resolvedDataDir).TrimEnd('\')
-  $dataRoot = [System.IO.Path]::GetPathRoot($dataFullPath).TrimEnd('\')
-  $profilePath = [System.IO.Path]::GetFullPath([Environment]::GetFolderPath("UserProfile")).TrimEnd('\')
-  $localAppDataPath = if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { "" } else {
-    [System.IO.Path]::GetFullPath($env:LOCALAPPDATA).TrimEnd('\')
-  }
-  if ($dataFullPath.Length -lt 12 -or $dataFullPath -eq $dataRoot -or $dataFullPath -eq $profilePath -or $dataFullPath -eq $localAppDataPath) {
-    throw "Refusing to recursively delete an unsafe data path: $dataFullPath"
-  }
+  $dataFullPath = Assert-WefDataRoot $resolvedDataDir
   Remove-Item -LiteralPath $dataFullPath -Recurse -Force
   Write-Host "Deleted local Workflow Environment Factory data: $dataFullPath (not recoverable by this uninstaller)."
 } else {
   Write-Host "Preserved local product data: $resolvedDataDir"
 }
 
+& (Join-Path $PSScriptRoot "Inspect-Installation.ps1") -RequireAbsent -RequireNoData:$DeleteData -Port $Port -DataDir $resolvedDataDir | Out-Null
 Write-Host "Workflow Environment Factory is uninstalled. The source checkout was not deleted."

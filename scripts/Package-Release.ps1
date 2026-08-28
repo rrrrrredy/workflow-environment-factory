@@ -91,8 +91,11 @@ try {
     $listing = (& $tar.Source -tf $archivePath | Out-String)
     foreach ($required in @(
       "$folderName/.agents/plugins/marketplace.json",
+      "$folderName/LICENSE",
+      "$folderName/NOTICE",
       "$folderName/release-source.json",
       "$folderName/release-evidence/workflow-product-gate-$Version.json",
+      "$folderName/scripts/Inspect-Installation.ps1",
       "$folderName/scripts/Acceptance-InstallUninstall.ps1",
       "$folderName/plugins/workflow-environment-factory/.codex-plugin/plugin.json",
       "$folderName/dist/web/index.html",

@@ -46,7 +46,6 @@ def doctor(settings: Settings) -> int:
         )
         if codex.returncode != 0:
             failures.append(f"Codex: {codex.stderr or codex.stdout or 'version check failed'}")
-    settings.data_dir.mkdir(parents=True, exist_ok=True)
     print(f"Data directory: {settings.data_dir}")
     print(f"Protocol schemas: {settings.protocol_schema_dir}")
     print(f"Docker: {docker.status}")
@@ -59,7 +58,7 @@ def doctor(settings: Settings) -> int:
 def main(argv: list[str] | None = None) -> None:
     arguments = build_parser().parse_args(argv)
     repository_root = Path(__file__).resolve().parents[2]
-    settings = Settings.load(repository_root)
+    settings = Settings.load(repository_root, initialize=arguments.command != "doctor")
     if arguments.command == "doctor":
         raise SystemExit(doctor(settings))
     services = Services.build(settings)

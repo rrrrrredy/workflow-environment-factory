@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 from synthetic_server import blueprint_payload, create_repository, make_correct
-from workflow_environment_factory.config import Settings
+from workflow_environment_factory.config import Settings, ensure_factory_data_root
 from workflow_environment_factory.engine import DockerEngine
 from workflow_environment_factory.models import RecordingEvent
 from workflow_environment_factory.services import Services
@@ -29,7 +29,8 @@ def main() -> None:
         docker_executable=os.getenv("DOCKER_EXECUTABLE", "docker"),
         web_root=root / "dist" / "web",
     )
-    for directory in (settings.data_dir, settings.content_dir, settings.worktrees_dir, settings.simulator_dir):
+    ensure_factory_data_root(settings.data_dir)
+    for directory in (settings.content_dir, settings.worktrees_dir, settings.simulator_dir):
         directory.mkdir(parents=True, exist_ok=True)
     services = Services.build(settings, DockerEngine(settings.docker_executable))
     runs = []

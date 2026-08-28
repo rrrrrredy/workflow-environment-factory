@@ -4,6 +4,8 @@ All notable user-visible changes are documented here. The project follows Semant
 
 ## [Unreleased]
 
+- Installation is now transactional across the product-created data root, plugin, marketplace, Startup shortcut, service startup, and failed `-Repair`; the clean-Windows gate injects real port conflicts and requires restoration plus a machine-readable zero-residue audit.
+- Every entry point now creates only a previously nonexistent data directory or reuses one with a valid product ownership marker; it rejects existing unmarked directories, wrong-product markers, reparse points, and protected roots.
 - Real Runs now fail closed before model use when the exact App Server workspace sandbox cannot be created; Codex execution explicitly disables network, extra writable roots, ambient user config, unrelated tools and plugins, uses an ephemeral thread, injects only the Factory MCP server, filters the shell environment, and classifies setup failures as environment errors.
 - Agent Runs now use a shallow, standalone Git object database outside the writable workspace; known-correct objects, remotes, alternates, and `.git` markers are absent, while tracked and untracked changes are both scored.
 - MCP Run/Case reads now use Agent-specific views that omit known-correct refs, patch digests, provenance, full gate evidence, and scores while preserving complete user-facing audit/export data.

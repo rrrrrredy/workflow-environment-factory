@@ -32,7 +32,7 @@ The installer is a readable PowerShell script. It does not require administrator
 
 Use `-EnableStartup` only when you want the current-user service to start at sign-in. Use `-NoStart` to prepare dependencies and the plugin without starting the service.
 
-`-Port` and `-DataDir` are forwarded to the first service start and the optional Startup shortcut. When either is customized, launch Codex with matching `WEF_PORT` and `WEF_DATA_DIR` values so the simulator MCP tools use the same local instance.
+`-Port` and `-DataDir` are forwarded to the first service start and the optional Startup shortcut. A custom data path must either not exist yet or already carry this product's ownership marker; existing unmarked directories are rejected even when empty. `-Repair` restores the previous plugin, marketplace, Startup shortcut, and data if a later installation step fails. When either value is customized, launch Codex with matching `WEF_PORT` and `WEF_DATA_DIR` values so the simulator MCP tools use the same local instance.
 
 ## Exact state changes
 
@@ -105,9 +105,18 @@ To delete local product data permanently:
 .\scripts\Uninstall.ps1 -DeleteData
 ```
 
-The script refuses to recursively delete a drive root, user profile, `%LOCALAPPDATA%`, or a suspiciously short path. This deletion is not recoverable by the product.
+Verify the final machine state without changing it:
 
-Release CI executes `scripts\Acceptance-InstallUninstall.ps1` in an isolated Codex home and records real plugin, marketplace, loopback service, Startup, preservation, reinstall, deletion, and final-removal evidence. Its Docker doctor proves that a Docker server responds on Windows; real Linux-container execution of both product verticals is a separate Docker golden gate and is never inferred from the doctor.
+```powershell
+.\scripts\Inspect-Installation.ps1 -RequireAbsent
+.\scripts\Inspect-Installation.ps1 -RequireAbsent -RequireNoData
+```
+
+The first command permits the data preserved by the default uninstall. The second is the strict zero-data check after an explicit `-DeleteData` uninstall. Both fail when Codex plugin/marketplace state cannot be inspected instead of claiming success from missing evidence.
+
+The script deletes only a real directory carrying a valid Workflow Environment Factory ownership marker. It also rejects files, reparse points, a drive root, user profile, Documents, `%LOCALAPPDATA%`, or another suspiciously broad path. This deletion is not recoverable by the product.
+
+Release CI executes `scripts\Acceptance-InstallUninstall.ps1` in an isolated Codex home. It occupies the service port to prove a failed first install removes every newly created product state, then repeats the fault during `-Repair` and requires the prior plugin, marketplace, Startup shortcut, and data to survive byte-for-byte where applicable. It then records real registration, loopback service, preservation, reinstall, ownership-marked deletion, and machine-audited final-removal evidence. Its Docker doctor proves that a Docker server responds on Windows; real Linux-container execution of both product verticals is a separate Docker golden gate and is never inferred from the doctor.
 
 ## Offline behavior
 

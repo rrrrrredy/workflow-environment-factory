@@ -104,6 +104,75 @@ function Get-WefDataDir([string]$Requested = "") {
   return [System.IO.Path]::GetFullPath((Join-Path ([Environment]::GetFolderPath("UserProfile")) ".workflow-environment-factory"))
 }
 
+function Assert-WefSafeDataPath([string]$DataDir) {
+  $resolved = [System.IO.Path]::GetFullPath($DataDir).TrimEnd('\')
+  $root = [System.IO.Path]::GetPathRoot($resolved).TrimEnd('\')
+  $profile = [System.IO.Path]::GetFullPath([Environment]::GetFolderPath("UserProfile")).TrimEnd('\')
+  $localAppData = if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { "" } else {
+    [System.IO.Path]::GetFullPath($env:LOCALAPPDATA).TrimEnd('\')
+  }
+  $documentsFolder = [Environment]::GetFolderPath("MyDocuments")
+  $documents = if ([string]::IsNullOrWhiteSpace($documentsFolder)) { "" } else {
+    [System.IO.Path]::GetFullPath($documentsFolder).TrimEnd('\')
+  }
+  if ($resolved.Length -lt 12 -or $resolved -eq $root -or $resolved -eq $profile -or $resolved -eq $localAppData -or $resolved -eq $documents) {
+    throw "Refusing to use an unsafe Workflow Environment Factory data path: $resolved"
+  }
+  return $resolved
+}
+
+function Get-WefDataMarkerPath([string]$DataDir) {
+  return Join-Path ([System.IO.Path]::GetFullPath($DataDir)) ".workflow-environment-factory-data.json"
+}
+
+function Assert-WefDataRoot([string]$DataDir) {
+  $resolved = Assert-WefSafeDataPath $DataDir
+  $item = Get-Item -LiteralPath $resolved -Force -ErrorAction Stop
+  if (-not $item.PSIsContainer -or ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+    throw "Workflow Environment Factory data root must be a real directory, not a file or reparse point: $resolved"
+  }
+  $markerPath = Get-WefDataMarkerPath $resolved
+  if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+    throw "Refusing to treat an unmarked directory as Workflow Environment Factory data: $resolved"
+  }
+  try { $marker = Get-Content -LiteralPath $markerPath -Raw | ConvertFrom-Json }
+  catch { throw "Workflow Environment Factory data marker is invalid: $markerPath" }
+  if ($marker.schema_version -ne "product.data-root.v1" -or $marker.product -ne "workflow-environment-factory") {
+    throw "Workflow Environment Factory data marker names another product: $markerPath"
+  }
+  return $resolved
+}
+
+function Initialize-WefDataRoot([string]$DataDir) {
+  $resolved = Assert-WefSafeDataPath $DataDir
+  if (Test-Path -LiteralPath $resolved) {
+    $item = Get-Item -LiteralPath $resolved -Force
+    if (-not $item.PSIsContainer -or ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+      throw "Workflow Environment Factory data root must be a real directory, not a file or reparse point: $resolved"
+    }
+    $markerPath = Get-WefDataMarkerPath $resolved
+    if (Test-Path -LiteralPath $markerPath -PathType Leaf) {
+      Assert-WefDataRoot $resolved | Out-Null
+      return
+    }
+    throw "DataDir already exists but has no Workflow Environment Factory marker: $resolved"
+  } else {
+    New-Item -ItemType Directory -Path $resolved | Out-Null
+  }
+  $marker = [ordered]@{
+    schema_version = "product.data-root.v1"
+    product = "workflow-environment-factory"
+    created_at = [DateTimeOffset]::UtcNow.ToString("o")
+  } | ConvertTo-Json -Depth 3
+  [System.IO.File]::WriteAllText((Get-WefDataMarkerPath $resolved), "$marker`n", [Text.UTF8Encoding]::new($false))
+  Assert-WefDataRoot $resolved | Out-Null
+}
+
+function Remove-WefDataRootCreatedByFailedInstall([string]$DataDir) {
+  $resolved = Assert-WefDataRoot $DataDir
+  Remove-Item -LiteralPath $resolved -Recurse -Force
+}
+
 function Get-WefProtocolDir {
   return Join-Path $script:WefRoot ".runtime-deps\runcase-interchange\0.1.0\schemas"
 }

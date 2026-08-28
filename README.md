@@ -114,7 +114,8 @@ This stops the service and removes the Codex plugin, marketplace entry, and opti
 .\scripts\Uninstall.ps1 -DeleteData
 ```
 
-The uninstaller resolves and validates the exact data path before recursive deletion. It refuses drive roots, the user profile, and broad application-data roots. It never deletes the source checkout.
+All entry points create only a nonexistent data directory or reuse one with this product's marker; existing unmarked directories are rejected. The uninstaller also rejects files/reparse points and broad protected locations, and never deletes the source checkout.
+To obtain machine-readable proof that no service, PID file, Startup shortcut, plugin, or marketplace registration remains, run `./scripts/Inspect-Installation.ps1 -RequireAbsent`; add `-RequireNoData` only after an intentional `-DeleteData` uninstall.
 
 ## Architecture
 

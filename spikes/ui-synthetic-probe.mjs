@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const scratchRoot = process.env.WEF_PROBE_TMP_ROOT ?? tmpdir();
 mkdirSync(scratchRoot, { recursive: true });
-const dataDir = mkdtempSync(join(scratchRoot, "wef-synthetic-ui-"));
+const scratchDir = mkdtempSync(join(scratchRoot, "wef-synthetic-ui-"));
+const dataDir = join(scratchDir, "data");
 const outputDir = resolve(process.env.WEF_UI_OUTPUT_DIR ?? join(root, "docs", "images"));
 const port = Number.parseInt(process.env.WEF_SYNTHETIC_PORT ?? "43141", 10);
 const python = process.env.WEF_PYTHON ?? "python";
@@ -142,5 +143,5 @@ try {
     server.kill();
     await serverClosed;
   }
-  rmSync(dataDir, { recursive: true, force: true });
+  rmSync(scratchDir, { recursive: true, force: true });
 }

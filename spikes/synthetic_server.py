@@ -7,7 +7,7 @@ from pathlib import Path
 import uvicorn
 from workflow_environment_factory.app import create_app
 from workflow_environment_factory.auth import load_or_create_token
-from workflow_environment_factory.config import Settings
+from workflow_environment_factory.config import Settings, ensure_factory_data_root
 from workflow_environment_factory.engine import LocalTestEngine
 from workflow_environment_factory.models import BlueprintCreate, RecordingEvent, RunStatus, utc_now
 from workflow_environment_factory.services import Services
@@ -200,7 +200,8 @@ def main() -> None:
         docker_executable="synthetic-no-docker",
         web_root=root / "dist" / "web",
     )
-    for directory in (settings.data_dir, settings.content_dir, settings.worktrees_dir, settings.simulator_dir):
+    ensure_factory_data_root(settings.data_dir)
+    for directory in (settings.content_dir, settings.worktrees_dir, settings.simulator_dir):
         directory.mkdir(parents=True, exist_ok=True)
     services = Services.build(settings, LocalTestEngine())
     try:

@@ -24,6 +24,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "Plugin validation failed." }
   & $node --check (Join-Path $script:WefRoot "plugins/workflow-environment-factory/scripts/mcp-server.mjs")
   if ($LASTEXITCODE -ne 0) { throw "MCP server syntax check failed." }
+  & (Join-Path $PSScriptRoot "Test-InstallationSafety.ps1")
+  if ($LASTEXITCODE -ne 0) { throw "Installation safety validation failed." }
   if ($RequireDocker) {
     $previousProtocol = [Environment]::GetEnvironmentVariable("WEF_PROTOCOL_SCHEMA_DIR", "Process")
     [Environment]::SetEnvironmentVariable("WEF_PROTOCOL_SCHEMA_DIR", (Get-WefProtocolDir), "Process")
@@ -34,7 +36,6 @@ try {
         throw "WEF_DOCKER_GATE_IMAGE must name an immutable image@sha256 digest for the release gate."
       }
       $gateData = Join-Path $script:WefRoot ".runtime-data\docker-gate-$([Guid]::NewGuid().ToString('N'))"
-      New-Item -ItemType Directory -Path $gateData -Force | Out-Null
       $previousGateData = [Environment]::GetEnvironmentVariable("WEF_DOCKER_GATE_DATA_DIR", "Process")
       [Environment]::SetEnvironmentVariable("WEF_DOCKER_GATE_DATA_DIR", $gateData, "Process")
       try {

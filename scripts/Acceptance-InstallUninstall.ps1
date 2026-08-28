@@ -20,6 +20,19 @@ function Invoke-CodexText([string[]]$Arguments) {
   return $text
 }
 
+function Start-AcceptancePortBlocker([string]$Node, [string]$ScriptPath, [int]$ListenPort) {
+  $quotedScriptPath = '"' + $ScriptPath.Replace('"', '\"') + '"'
+  $process = Start-Process -FilePath $Node -ArgumentList @($quotedScriptPath, [string]$ListenPort) -WindowStyle Hidden -PassThru
+  for ($attempt = 0; $attempt -lt 40; $attempt += 1) {
+    Start-Sleep -Milliseconds 125
+    if ($process.HasExited) { break }
+    if (@(Get-NetTCPConnection -LocalPort $ListenPort -State Listen -ErrorAction SilentlyContinue).Count -gt 0) { break }
+  }
+  Assert-Acceptance (-not $process.HasExited) "port blocker failed to start"
+  Assert-Acceptance (@(Get-NetTCPConnection -LocalPort $ListenPort -State Listen -ErrorAction SilentlyContinue).Count -gt 0) "port blocker did not listen"
+  return $process
+}
+
 function Remove-TestRoot([string]$Path, [string]$AllowedParent) {
   if (-not (Test-Path -LiteralPath $Path -PathType Container)) { return }
   $resolved = (Resolve-Path -LiteralPath $Path).Path.TrimEnd('\')
@@ -77,6 +90,7 @@ foreach ($name in $environmentNames) {
   $previousEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
 }
 $installationAttempted = $false
+$blockerProcess = $null
 $startedAt = [DateTimeOffset]::UtcNow
 
 try {
@@ -91,6 +105,35 @@ try {
   Assert-Acceptance (-not (Test-WefPluginInstalled $initialPlugins $selector)) "isolated Codex home is not plugin-clean"
   Assert-Acceptance (-not (Test-WefMarketplacePresent $initialMarketplaces $marketplace)) "isolated Codex home is not marketplace-clean"
 
+  $blockerPath = Join-Path $acceptanceRoot "port-blocker.mjs"
+  $blockerSource = @'
+import { createServer } from "node:http";
+const port = Number.parseInt(process.argv[2], 10);
+createServer((_request, response) => {
+  response.statusCode = 503;
+  response.end("occupied");
+}).listen(port, "127.0.0.1");
+'@
+  [System.IO.File]::WriteAllText($blockerPath, $blockerSource, [Text.UTF8Encoding]::new($false))
+  $blockerProcess = Start-AcceptancePortBlocker (Resolve-WefNode) $blockerPath $Port
+  $rollbackFailure = $null
+  try {
+    & (Join-Path $PSScriptRoot "Install.ps1") -EnableStartup -Port $Port -DataDir $acceptanceData -ProtocolRoot $ProtocolRoot
+  } catch {
+    $rollbackFailure = $_
+  }
+  Assert-Acceptance ($null -ne $rollbackFailure) "installer unexpectedly succeeded with its service port occupied"
+  Assert-Acceptance ($rollbackFailure.Exception.Message -match "did not become healthy|already serving another application") "failure injection did not reach service startup"
+  Assert-Acceptance (-not (Test-WefPluginInstalled (Invoke-CodexText @("plugin", "list")) $selector)) "failed install left the plugin installed"
+  Assert-Acceptance (-not (Test-WefMarketplacePresent (Invoke-CodexText @("plugin", "marketplace", "list")) $marketplace)) "failed install left the marketplace registered"
+  Assert-Acceptance (-not (Test-Path -LiteralPath $shortcutPath)) "failed install left a Startup shortcut"
+  Assert-Acceptance (-not (Test-Path -LiteralPath $acceptanceData)) "failed install left its newly created data root"
+  Stop-Process -Id $blockerProcess.Id
+  $blockerProcess.WaitForExit()
+  $blockerProcess = $null
+  & (Join-Path $PSScriptRoot "Uninstall.ps1") -DeleteData -Port $Port -DataDir $acceptanceData
+  Assert-Acceptance (-not (Test-Path -LiteralPath $acceptanceData)) "failed-install cleanup left product data"
+
   $installationAttempted = $true
   & (Join-Path $PSScriptRoot "Install.ps1") -EnableStartup -Port $Port -DataDir $acceptanceData -ProtocolRoot $ProtocolRoot
   Assert-Acceptance (Test-Path -LiteralPath $shortcutPath -PathType Leaf) "installer did not create the requested Startup shortcut"
@@ -104,12 +147,35 @@ try {
   $sentinel = Join-Path $acceptanceData "preserve-me.txt"
   [System.IO.File]::WriteAllText($sentinel, "installation acceptance sentinel`n")
 
+  $shortcutHash = (Get-FileHash -LiteralPath $shortcutPath -Algorithm SHA256).Hash
+  & (Join-Path $PSScriptRoot "Stop.ps1") -Port $Port -DataDir $acceptanceData | Out-Null
+  $blockerProcess = Start-AcceptancePortBlocker (Resolve-WefNode) $blockerPath $Port
+  $repairFailure = $null
+  try {
+    & (Join-Path $PSScriptRoot "Install.ps1") -Repair -EnableStartup -Port $Port -DataDir $acceptanceData -ProtocolRoot $ProtocolRoot
+  } catch {
+    $repairFailure = $_
+  }
+  Assert-Acceptance ($null -ne $repairFailure) "repair unexpectedly succeeded with its service port occupied"
+  Assert-Acceptance ($repairFailure.Exception.Message -match "did not become healthy|already serving another application") "repair failure injection did not reach service startup"
+  Assert-Acceptance (Test-WefPluginInstalled (Invoke-CodexText @("plugin", "list")) $selector) "failed repair did not restore the plugin"
+  Assert-Acceptance (Test-WefMarketplacePresent (Invoke-CodexText @("plugin", "marketplace", "list")) $marketplace) "failed repair did not restore the marketplace"
+  Assert-Acceptance ((Get-FileHash -LiteralPath $shortcutPath -Algorithm SHA256).Hash -eq $shortcutHash) "failed repair did not restore the previous Startup shortcut"
+  Assert-Acceptance (Test-Path -LiteralPath $sentinel -PathType Leaf) "failed repair damaged existing product data"
+  Stop-Process -Id $blockerProcess.Id
+  $blockerProcess.WaitForExit()
+  $blockerProcess = $null
+  & (Join-Path $PSScriptRoot "Start.ps1") -Port $Port -DataDir $acceptanceData
+  $restartedHealth = Get-WefHealth $Port
+  Assert-Acceptance ($null -ne $restartedHealth -and $restartedHealth.product -eq "workflow-environment-factory") "service did not restart after failed repair"
+
   & (Join-Path $PSScriptRoot "Uninstall.ps1") -Port $Port -DataDir $acceptanceData
   Assert-Acceptance ($null -eq (Get-WefHealth $Port)) "service remained reachable after uninstall"
   Assert-Acceptance (Test-Path -LiteralPath $sentinel -PathType Leaf) "default uninstall did not preserve product data"
   Assert-Acceptance (-not (Test-Path -LiteralPath $shortcutPath)) "Startup shortcut remained after uninstall"
   Assert-Acceptance (-not (Test-WefPluginInstalled (Invoke-CodexText @("plugin", "list")) $selector)) "plugin remained installed after uninstall"
   Assert-Acceptance (-not (Test-WefMarketplacePresent (Invoke-CodexText @("plugin", "marketplace", "list")) $marketplace)) "marketplace remained after uninstall"
+  & (Join-Path $PSScriptRoot "Inspect-Installation.ps1") -RequireAbsent -Port $Port -DataDir $acceptanceData | Out-Null
 
   & (Join-Path $PSScriptRoot "Install.ps1") -NoStart -Port $Port -DataDir $acceptanceData -ProtocolRoot $ProtocolRoot
   Assert-Acceptance (Test-Path -LiteralPath $sentinel -PathType Leaf) "reinstall did not preserve existing data"
@@ -118,12 +184,13 @@ try {
   Assert-Acceptance (-not (Test-Path -LiteralPath $shortcutPath)) "final uninstall left a Startup shortcut"
   Assert-Acceptance (-not (Test-WefPluginInstalled (Invoke-CodexText @("plugin", "list")) $selector)) "final uninstall left the plugin installed"
   Assert-Acceptance (-not (Test-WefMarketplacePresent (Invoke-CodexText @("plugin", "marketplace", "list")) $marketplace)) "final uninstall left the marketplace registered"
+  & (Join-Path $PSScriptRoot "Inspect-Installation.ps1") -RequireAbsent -RequireNoData -Port $Port -DataDir $acceptanceData | Out-Null
 
   $dockerVersion = (& docker version --format '{{.Server.Version}}|{{.Server.Os}}|{{.Server.Arch}}' 2>&1 | Out-String).Trim()
   if ($LASTEXITCODE -ne 0) { throw "Docker became unavailable after installation acceptance: $dockerVersion" }
   $sourceEvidence = Get-AcceptanceSourceEvidence
   $evidence = [ordered]@{
-    schema_version = "product.installation-acceptance.v1"
+    schema_version = "product.installation-acceptance.v2"
     product = "workflow-environment-factory"
     product_version = (Get-Content -LiteralPath (Join-Path $script:WefRoot "pyproject.toml") -Raw | Select-String -Pattern '(?m)^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
     tested_commit = $sourceEvidence.commit
@@ -139,6 +206,8 @@ try {
     docker_server = $dockerVersion
     checks = [ordered]@{
       clean_isolated_codex_home = $true
+      failed_install_rolled_back = $true
+      failed_repair_restored_existing_install = $true
       docker_doctor_passed = $true
       service_started = $true
       loopback_only = $true
@@ -151,6 +220,7 @@ try {
       final_plugin_absent = $true
       final_marketplace_absent = $true
       final_service_absent = $true
+      installation_state_audit_passed = $true
     }
     evidence_boundary = "This proves the Windows installation lifecycle and a responding Docker server. Linux-container task execution is proven separately by the Docker golden gate."
   }
@@ -164,6 +234,9 @@ try {
   }
   Write-Output $json
 } finally {
+  if ($null -ne $blockerProcess -and -not $blockerProcess.HasExited) {
+    Stop-Process -Id $blockerProcess.Id -Force -ErrorAction SilentlyContinue
+  }
   try {
     if ($installationAttempted) {
       & (Join-Path $PSScriptRoot "Uninstall.ps1") -DeleteData -Port $Port -DataDir $acceptanceData 2>$null | Out-Null
