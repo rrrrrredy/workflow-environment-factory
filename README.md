@@ -46,14 +46,19 @@ Requirements:
 - Codex CLI/Desktop with `codex` on `PATH`;
 - PowerShell 7 recommended.
 
-Download the signed-checksum release archive, extract it, inspect the installer, then run:
+Download `workflow-environment-factory-0.1.0-windows-x64.zip` and its `.sha256` file from the same GitHub Release. Verify the archive, extract it, inspect the installer, then run:
 
 ```powershell
+$archive = '.\workflow-environment-factory-0.1.0-windows-x64.zip'
+$expected = (Get-Content "$archive.sha256").Split()[0]
+$actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actual -ne $expected) { throw 'Workflow Environment Factory archive checksum mismatch.' }
+Expand-Archive $archive -DestinationPath .
 Set-Location workflow-environment-factory-0.1.0
 .\scripts\Install.ps1 -Open
 ```
 
-The installer creates a project-local Python virtual environment, installs the locked frontend and backend dependencies, runs focused checks, confirms Docker and Codex, registers this checkout as a Codex marketplace, installs the plugin, and starts a loopback-only service. Restart Codex after installation.
+The same release contains a commit/protocol/Docker-bound manifest and GitHub build-provenance attestation. The installer creates a project-local Python virtual environment, installs the locked frontend and backend dependencies, runs focused checks, confirms Docker and Codex, registers this checkout as a Codex marketplace, installs the plugin, and starts a loopback-only service. Restart Codex after installation.
 
 To run from source before a packaged protocol dependency exists:
 
