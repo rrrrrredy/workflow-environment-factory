@@ -1,0 +1,86 @@
+{
+  "schema_version": "agent.run.v1",
+  "run_id": "11111111-1111-4111-8111-111111111111",
+  "goal": {
+    "text": "Fix the synthetic parser fixture and explain the cause.",
+    "source": "user",
+    "external_ref": "synthetic-issue:parser-17"
+  },
+  "agent": {
+    "product": "codex",
+    "product_version": "synthetic-0.1",
+    "adapter_version": "runtime-evolution-workbench/0.1.0",
+    "model": "synthetic-model",
+    "model_provider": "openai"
+  },
+  "configuration": {
+    "snapshot_id": "cfg-synthetic-parser",
+    "files": [],
+    "working_directory": "C:\\synthetic\\sample-parser",
+    "git_commit": "0123456789abcdef0123456789abcdef01234567",
+    "permissions": ["workspace-write"],
+    "allowed_tools": ["shell", "apply_patch"],
+    "environment": {
+      "os": "windows",
+      "shell": "powershell"
+    }
+  },
+  "started_at": "2026-08-28T01:00:00Z",
+  "ended_at": "2026-08-28T01:04:20Z",
+  "status": "failed",
+  "capture": {
+    "mode": "observed",
+    "sources": [
+      {
+        "name": "synthetic-hooks",
+        "version": "1",
+        "status": "partial",
+        "details": "One synthetic event was deliberately omitted."
+      }
+    ],
+    "completeness": "partial",
+    "gaps": [
+      {
+        "gap_id": "gap-1",
+        "kind": "missing",
+        "summary": "One synthetic command result was not observed.",
+        "source": "synthetic-hooks"
+      }
+    ],
+    "redaction": {
+      "status": "applied",
+      "secret_patterns_applied": ["secret-field"],
+      "excluded_paths": [".env"],
+      "redacted_field_count": 0
+    }
+  },
+  "events": [
+    {
+      "event_id": "evt-1",
+      "sequence": 0,
+      "timestamp": "2026-08-28T01:00:00Z",
+      "received_at": "2026-08-28T01:00:00.120Z",
+      "type": "session.started",
+      "source": "synthetic-hooks",
+      "summary": "Synthetic session started.",
+      "data": {
+        "api_token": "synthetic-import-secret-value"
+      },
+      "content_refs": [],
+      "redacted": false
+    }
+  ],
+  "artifacts": [],
+  "outcome": {
+    "status": "failure",
+    "summary": "The synthetic task remained unresolved.",
+    "verifier_refs": ["synthetic-parser-test"]
+  },
+  "user_corrections": [],
+  "resource_usage": {
+    "duration_ms": 260000
+  },
+  "extensions": {
+    "fixture": "fully-synthetic"
+  }
+}

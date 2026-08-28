@@ -1,0 +1,40 @@
+name: Bug report
+description: Report a reproducible product defect using non-sensitive data.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include secrets, private repository content, prompts, tokens, or real production data. Security issues must use private vulnerability reporting."
+  - type: input
+    id: version
+    attributes:
+      label: Product version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected and actual user-visible outcome
+      description: Say whether the failure was generation, reset, Agent execution, validation, cleanup, or UI presentation.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Use a synthetic or public repository and list exact commands/actions.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Windows, Docker, Python, Node, Git, and Codex versions.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Include only redacted status/error output needed to reproduce.

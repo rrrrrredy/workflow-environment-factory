@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose a bounded improvement tied to a real workflow problem.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: What result can a user not achieve today?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Real workflow evidence
+      description: Describe the workflow and failure without sharing private data.
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Proposed boundary
+      description: What should remain out of scope, and how would success be objectively verified?
+    validations:
+      required: true

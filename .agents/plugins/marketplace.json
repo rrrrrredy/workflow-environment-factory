@@ -1,0 +1,20 @@
+{
+  "name": "workflow-environment-factory",
+  "interface": {
+    "displayName": "Workflow Environment Factory"
+  },
+  "plugins": [
+    {
+      "name": "workflow-environment-factory",
+      "source": {
+        "source": "local",
+        "path": "./plugins/workflow-environment-factory"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
