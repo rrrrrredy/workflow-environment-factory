@@ -2,7 +2,7 @@
 
 ## Platform and Agent
 
-- The 0.1 preview supports Windows 11 and Codex only.
+- The 0.1 preview supports Windows 11 and Codex only. macOS and Linux installers, service lifecycle tools, and release archives are not provided; source-level portability is not a support claim.
 - Docker Desktop with Linux containers is required for production Case generation and scoring.
 - The UI and service are local; there is no cloud sync, remote team access, or permission model.
 - Codex uses the user's active binary and authentication. Managed Runs ignore ambient user config and installed plugins, explicitly inject only the Factory MCP server, and preserve repository AGENTS rules; a user-selected model or unrelated personal Skill therefore does not automatically carry into a Case. Explicit configuration snapshots are a later-version concern.

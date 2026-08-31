@@ -4,7 +4,9 @@ Workflow Environment Factory turns your own repository or Issue-to-PR process in
 
 It is not a public benchmark, an environment-outsourcing service, or a dashboard for watching an Agent. The useful output is a task pack you can keep, rerun, inspect, and improve as your repository and workflow change.
 
-> **Release status:** 0.1 technical preview for Windows 11 and Codex. The two product verticals, local UI, plugin, recovery boundaries, and synthetic browser flow are implemented. A real Docker gate, real authenticated Codex gate, and clean-Windows acceptance must still pass before this repository is labeled stable.
+> **Release status:** 0.1 technical preview for Windows 11 and Codex. CI covers both deterministic Docker verticals, the product, release archive, Windows installation lifecycle, and synthetic UI; this preview does not claim a real authenticated Codex run or single-host Windows 11 Docker Desktop acceptance and must not be labeled stable.
+
+macOS is not supported by the 0.1 installer or lifecycle tools. The Python service, web UI, Docker executor, MCP server, and Codex App Server boundary are largely portable, but running those pieces from source is not a supported Mac installation.
 
 ![Workflow Environment Factory Case matrix with fully synthetic data](docs/images/ui-desktop-case-factory-synthetic.png)
 
@@ -139,7 +141,7 @@ $env:WEF_PYTHON = 'C:\path\to\python.exe'
 .\scripts\Check.ps1 -InstallDependencies
 ```
 
-The regular check performs a strict React production build, locked Python dependency check, static analysis, the two focused golden scenarios, and plugin/MCP validation. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Formal packaging also requires committed, verified evidence from `scripts\Prepare-ReleaseEvidence.ps1`: real authenticated Codex must pass one code Run and one Issue-to-PR Run through the installed plugin, then the temporary plugin, marketplace, service, and data must all be removed.
+The regular check performs a strict React production build, locked Python dependency check, static analysis, the two focused golden scenarios, and plugin/MCP validation. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Version 0.1.0 packaging records that the authenticated code and Issue-to-PR Agent gate was not run; that optional gate and clean-machine acceptance remain mandatory before any stable label.
 
 Current evidence and remaining gates are listed in [acceptance](docs/acceptance.md). The tag-to-release gates and fixed Docker input are documented in [release process](docs/release-process.md). Contributions are welcome under [CONTRIBUTING.md](CONTRIBUTING.md); security reports follow [SECURITY.md](SECURITY.md).
 

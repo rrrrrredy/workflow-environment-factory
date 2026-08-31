@@ -3,7 +3,7 @@ name: release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v0.1.0'
 
 permissions:
   contents: read
@@ -24,11 +24,13 @@ jobs:
         with:
           path: product
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: rrrrrredy/runcase-interchange
           ref: v0.1.0
           path: protocol
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22.23.2'
@@ -49,7 +51,6 @@ jobs:
           $version = "${{ github.ref_name }}".TrimStart("v")
           $protocolRoot = (Resolve-Path ../protocol).Path
           ./scripts/Package-Release.ps1 -Version $version -ProtocolRoot $protocolRoot -OutputDirectory (Join-Path $env:GITHUB_WORKSPACE "candidate")
-          Copy-Item -LiteralPath ".\release-evidence\workflow-product-gate-$version.json" -Destination (Join-Path $env:GITHUB_WORKSPACE "candidate") -Force
       - name: Run release UI gate
         working-directory: product
         env:
@@ -156,7 +157,6 @@ jobs:
             artifacts/*.zip
             artifacts/*.sha256
             artifacts/*.release.json
-            artifacts/workflow-product-gate-*.json
             artifacts/factory-installation-evidence.json
       - name: Publish GitHub Release
         shell: pwsh
