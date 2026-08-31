@@ -63,7 +63,7 @@ jobs:
           npx playwright install --with-deps chromium
           npm run probe:ui
       - name: Upload release candidate
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-release-candidate
           path: candidate
@@ -131,7 +131,7 @@ jobs:
             $property = $evidence.checks.PSObject.Properties[$check]
             if ($null -eq $property -or -not [bool]$property.Value) { throw "Installation evidence failed or omitted: $check" }
           }
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-installation-evidence
           path: |
@@ -188,7 +188,7 @@ jobs:
           mv "$WEF_PORTABLE_EVIDENCE_DIR/running.json" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-running.json"
           mv "$WEF_PORTABLE_EVIDENCE_DIR/absent.json" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-absent.json"
           mv "$WEF_PORTABLE_EVIDENCE_DIR/uninstall.txt" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-uninstall.txt"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-${{ matrix.platform }}-archive-evidence
           path: ${{ runner.temp }}/factory-portable-evidence

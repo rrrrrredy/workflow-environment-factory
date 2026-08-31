@@ -57,21 +57,21 @@ jobs:
         run: npm run probe:ui
       - name: Upload synthetic UI evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-ui-evidence
           path: ${{ runner.temp }}\factory-ui-evidence
           if-no-files-found: warn
       - name: Upload installation evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-installation-evidence
           path: ${{ runner.temp }}\factory-installation-evidence.json
           if-no-files-found: error
       - name: Upload Windows read-isolation evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-windows-read-isolation-evidence
           path: ${{ runner.temp }}\factory-windows-read-isolation.json
@@ -179,7 +179,7 @@ jobs:
           ./scripts/Acceptance-Portable.sh
       - name: Upload portable lifecycle evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: factory-${{ matrix.platform }}-lifecycle-evidence
           path: ${{ runner.temp }}/factory-portable-evidence
