@@ -117,3 +117,5 @@ Expected assertions:
 Store command output, protocol files, screenshots containing synthetic or deliberately non-sensitive data, and the clean-environment description with the release evidence. Do not replace these steps with a build badge.
 
 The repeatable clean-user installation portion is encoded in `scripts\Acceptance-InstallUninstall.ps1`. Its Windows evidence and the Ubuntu real-Docker golden evidence are complementary. A final release still requires the checklist above on Windows 11 with Docker Desktop Linux containers; combining two CI machines must not be described as that single-host acceptance.
+
+`scripts/Acceptance-Portable.sh` adds hosted Ubuntu and macOS plugin/service lifecycle evidence. Ubuntu requires its real Docker daemon; macOS intentionally records only build, plugin, loopback service, restart, uninstall, and absence because GitHub-hosted macOS has no Docker Desktop task gate. Neither hosted result is presented as a physical-machine or authenticated model run.

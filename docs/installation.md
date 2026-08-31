@@ -2,15 +2,17 @@
 
 ## Supported preview environment
 
-- Windows 11 x64
-- Docker Desktop using Linux containers
+- Windows 11 x64, Linux x64, or macOS
+- Docker Desktop using Linux containers on Windows/macOS, or Docker Engine on Linux
 - Python 3.11-3.13
 - Node.js 22.x
 - Git
 - Codex CLI/Desktop with `codex` on `PATH`
 - PowerShell 7 recommended
 
-The installer is a readable PowerShell script. It does not require administrator privileges.
+Windows uses the readable PowerShell lifecycle. Linux and macOS use the readable shell/Node lifecycle. Neither path requires administrator privileges.
+
+GitHub-hosted Ubuntu proves the full portable plugin/service lifecycle with a real Docker daemon, while the existing Docker golden job proves both task verticals. GitHub-hosted macOS proves build, local service, plugin registration, restart, uninstall, and final absence while explicitly skipping the unavailable hosted Docker daemon. This is not physical-Mac, Docker Desktop, or authenticated-Codex task evidence.
 
 ## Install from a release archive
 
@@ -29,6 +31,15 @@ The installer is a readable PowerShell script. It does not require administrator
    ```
 
 4. Restart Codex so the new Skill and MCP server are discovered.
+
+On Linux or macOS, download the matching portable archive, verify its SHA-256, extract it, then run:
+
+```bash
+chmod +x scripts/*.sh
+./scripts/Install.sh --open
+```
+
+The portable installer creates `.venv`, installs the constrained production Python dependencies, checks Codex, requires a reachable Docker daemon, registers the same Codex marketplace/plugin, and starts the loopback service. It does not create a systemd unit or macOS LaunchAgent; run `Start.sh` after signing in.
 
 Use `-EnableStartup` only when you want the current-user service to start at sign-in. Use `-NoStart` to prepare dependencies and the plugin without starting the service.
 
@@ -77,6 +88,15 @@ For troubleshooting, use foreground mode:
 .\scripts\Start.ps1 -Foreground
 ```
 
+Linux/macOS use:
+
+```bash
+./scripts/Start.sh --open
+./scripts/Stop.sh
+```
+
+The portable service record binds the PID to this checkout's virtual-environment Python and module command. Stop refuses to signal a process when either does not match.
+
 ## Environment variables
 
 | Variable | Purpose |
@@ -116,7 +136,19 @@ The first command permits the data preserved by the default uninstall. The secon
 
 The script deletes only a real directory carrying a valid Workflow Environment Factory ownership marker. It also rejects files, reparse points, a drive root, user profile, Documents, `%LOCALAPPDATA%`, or another suspiciously broad path. This deletion is not recoverable by the product.
 
+Linux/macOS equivalents use long options:
+
+```bash
+./scripts/Uninstall.sh
+./scripts/Uninstall.sh --delete-data
+./scripts/Inspect-Installation.sh --require-absent --require-no-data
+```
+
+The portable uninstaller preserves product data by default and deletes only an exact real directory carrying the Factory marker. It never removes the source or extracted release directory.
+
 Release CI executes `scripts\Acceptance-InstallUninstall.ps1` in an isolated Codex home. It occupies the service port to prove a failed first install removes every newly created product state, then repeats the fault during `-Repair` and requires the prior plugin, marketplace, Startup shortcut, and data to survive byte-for-byte where applicable. It then records real registration, loopback service, preservation, reinstall, ownership-marked deletion, and machine-audited final-removal evidence. Hosted Windows CI records an explicit Docker command stub only for the prerequisite path; real Linux-container execution of both product verticals is a separate Ubuntu Docker golden gate, and neither result proves same-host Windows 11 Docker Desktop acceptance.
+
+`scripts/Acceptance-Portable.sh` records the equivalent plugin/service/restart/removal lifecycle on hosted Ubuntu and macOS. Linux additionally requires the real hosted Docker daemon. macOS records the Docker omission and makes no Case-execution claim.
 
 ## Offline behavior
 

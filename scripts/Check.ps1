@@ -20,6 +20,8 @@ try {
   New-Item -ItemType Directory -Path (Join-Path $script:WefRoot ".runtime-data") -Force | Out-Null
   & $venvPython -m pytest --basetemp (Join-Path $script:WefRoot ".runtime-data\pytest") -q
   if ($LASTEXITCODE -ne 0) { throw "Golden scenario tests failed." }
+  & $node --test (Join-Path $PSScriptRoot "portable-lifecycle.test.mjs")
+  if ($LASTEXITCODE -ne 0) { throw "Portable lifecycle tests failed." }
   & $node (Join-Path $PSScriptRoot "validate-plugin.mjs")
   if ($LASTEXITCODE -ne 0) { throw "Plugin validation failed." }
   & $node --check (Join-Path $script:WefRoot "plugins/workflow-environment-factory/scripts/mcp-server.mjs")

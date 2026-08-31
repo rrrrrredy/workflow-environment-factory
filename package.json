@@ -17,6 +17,7 @@
   },
   "scripts": {
     "build:web": "tsc -p tsconfig.web.json --noEmit && vite build",
+    "test:portable": "node --test scripts/portable-lifecycle.test.mjs",
     "dev:web": "vite",
     "probe:ui": "node spikes/ui-synthetic-probe.mjs"
   },
