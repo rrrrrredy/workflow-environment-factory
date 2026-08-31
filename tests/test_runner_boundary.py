@@ -10,6 +10,8 @@ from workflow_environment_factory.app_server_preflight import CodexWorkspacePref
 from workflow_environment_factory.gitops import GitWorkspaceManager
 from workflow_environment_factory.runner import build_codex_command
 
+from spikes.codex_read_isolation_gate import classify_known_unsupported
+
 _FAKE_APP_SERVER = r"""
 import json
 import pathlib
@@ -138,3 +140,36 @@ def test_mcp_uses_only_run_scoped_credentials_and_enforces_active_run() -> None:
     assert "requireActiveRun(args)" in script
     assert "WEF_DATA_DIR" not in script
     assert "session-token" not in script
+
+
+def test_hosted_platform_limitations_are_narrow_and_opt_in() -> None:
+    windows_leak = "CodexPreflightError: restricted shell read the product database: stdout='synthetic'"
+    linux_bwrap = "stderr='bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted'"
+    assert (
+        classify_known_unsupported(
+            windows_leak,
+            system="windows",
+            allow_windows=True,
+            allow_linux=False,
+        )
+        == "native_windows_deny_read_isolation_ineffective"
+    )
+    assert (
+        classify_known_unsupported(
+            linux_bwrap,
+            system="linux",
+            allow_windows=False,
+            allow_linux=True,
+        )
+        == "hosted_linux_network_namespace_unavailable"
+    )
+    assert classify_known_unsupported(windows_leak, system="windows", allow_windows=False, allow_linux=False) is None
+    assert (
+        classify_known_unsupported(
+            "unexpected failure",
+            system="linux",
+            allow_windows=False,
+            allow_linux=True,
+        )
+        is None
+    )

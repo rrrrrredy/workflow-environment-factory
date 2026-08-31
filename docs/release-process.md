@@ -14,9 +14,9 @@ The image is the Docker Official Image manifest digest returned by Docker Hub fo
 
 ## CI gates
 
-1. Windows builds the React product, installs exact Python version constraints, runs all local golden tests, validates the plugin, and uses a real no-model App Server shell to prove that the workspace is writable while the product database and source solution commit are unreadable. These constraints do not hash-lock wheel or sdist artifacts.
+1. Windows builds the React product, installs exact Python version constraints, runs all local golden tests, validates the plugin, and uses a real no-model App Server shell to test whether the workspace is writable while the product database and source solution commit are unreadable. Current unsupported results are retained as negative evidence. These constraints do not hash-lock wheel or sdist artifacts.
 2. Windows also runs one asserted browser golden scenario covering recording, three Cases, task-pack export, timeout/not-scored separation, protocol import, and mobile overflow.
-3. Ubuntu runs the same checks with Docker available; hosted Linux and Apple Silicon macOS repeat the same fail-closed read-isolation proof.
+3. Ubuntu runs the same checks with Docker available; hosted Linux and Apple Silicon macOS repeat the no-model gate. Linux currently records its exact upstream sandbox-start limitation, while macOS must pass the read-isolation proof.
 4. The Docker gate creates a fresh synthetic repository and confirmed Issue-to-PR demonstration; it is explicitly an environment/verifier gate, not an Agent execution claim.
 5. It generates one base Case plus two provenance-preserving variants for each vertical.
 6. Wrong code fails and correct code passes.
@@ -34,7 +34,9 @@ $env:WEF_DOCKER_GATE_IMAGE = 'python:3.11.16-slim-bookworm@sha256:0bee7276f83efd
 
 The gate must run from a normal Windows session. Before either model call, it selects the same restricted permission profile used by the Run and proves three properties with an offline App Server command: the generated workspace is writable, the product SQLite database is unreadable, and `git show` cannot open the source repository's known-correct commit. A platform that cannot enforce restricted reads fails closed before the model starts. Each Codex Run ignores ambient user config and explicitly loads only the Factory MCP server with a token derived for that Run; that token cannot access Blueprints, product data, or another Run. The gate then produces one real code Score and one real Issue-to-PR Score, proves the required MCP actions, and removes its temporary product installation. The sanitized file includes no prompts, repository content, credential, or local path. Review it and commit only `release-evidence/workflow-product-gate-0.2.0.json`.
 
-Codex 0.151.0 currently returns `windows sandbox: helper_unknown_error: apply deny-read ACLs` on native Windows. Hosted Windows CI may record only that exact condition as `known_unsupported`, with Agent execution and model execution both false. Any different isolation failure remains a failing gate. A stable release still requires a real passing preflight and authenticated golden Runs; the known-unsupported record cannot satisfy either requirement.
+Codex 0.151.0 currently returns `windows sandbox: helper_unknown_error: apply deny-read ACLs` on one native Windows path; hosted Windows can accept the profile yet still read the product database or source solution. CI may record only those exact conditions as `known_unsupported`, with Agent execution and model execution both false. Any different isolation failure remains a failing gate. A stable release still requires a real passing preflight and authenticated golden Runs; the known-unsupported record cannot satisfy either requirement.
+
+Hosted Ubuntu may likewise record only the exact `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted` sandbox-start failure. This proves the hosted environment cannot execute the Agent safely; it does not weaken the production permission profile and cannot satisfy the stable-release gate. macOS receives no such exception and must pass its no-model read-isolation probe.
 
 `Verify-ReleaseEvidence.ps1` requires the tested commit to be an ancestor of the reviewed code and permits only that evidence file to differ. The 0.2.0 technical preview packages without this proof and records `not_run` in the attested manifests. Authenticated evidence remains required before any stable release.
 

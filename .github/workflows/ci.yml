@@ -120,9 +120,11 @@ jobs:
           - os: ubuntu-24.04
             platform: linux
             skip_docker: '0'
+            read_isolation_args: '--allow-known-linux-sandbox-unsupported'
           - os: macos-14
             platform: macos
             skip_docker: '1'
+            read_isolation_args: ''
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -165,7 +167,7 @@ jobs:
           WEF_READ_ISOLATION_EVIDENCE_DIR: ${{ runner.temp }}/factory-portable-evidence
         run: |
           mkdir -p "$WEF_READ_ISOLATION_EVIDENCE_DIR"
-          .venv/bin/python spikes/codex_read_isolation_gate.py --codex codex --evidence "$WEF_READ_ISOLATION_EVIDENCE_DIR/factory-${{ matrix.platform }}-read-isolation.json"
+          .venv/bin/python spikes/codex_read_isolation_gate.py --codex codex ${{ matrix.read_isolation_args }} --evidence "$WEF_READ_ISOLATION_EVIDENCE_DIR/factory-${{ matrix.platform }}-read-isolation.json"
       - name: Install, start, inspect, restart, uninstall, and prove absence
         env:
           CODEX_HOME: ${{ runner.temp }}/codex-home

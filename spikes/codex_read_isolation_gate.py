@@ -13,6 +13,26 @@ from workflow_environment_factory.app_server_preflight import CodexWorkspacePref
 from workflow_environment_factory.gitops import GitWorkspaceManager
 
 WINDOWS_DENY_READ_ACL_ERROR = "windows sandbox: helper_unknown_error: apply deny-read ACLs"
+WINDOWS_DATABASE_READ_ERROR = "restricted shell read the product database"
+WINDOWS_SOURCE_READ_ERROR = "restricted shell read the source solution commit"
+LINUX_NETWORK_NAMESPACE_ERROR = "bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted"
+
+
+def classify_known_unsupported(
+    error_text: str,
+    *,
+    system: str,
+    allow_windows: bool,
+    allow_linux: bool,
+) -> str | None:
+    if allow_windows and system == "windows":
+        if WINDOWS_DENY_READ_ACL_ERROR in error_text:
+            return "native_windows_deny_read_acl_unavailable"
+        if WINDOWS_DATABASE_READ_ERROR in error_text or WINDOWS_SOURCE_READ_ERROR in error_text:
+            return "native_windows_deny_read_isolation_ineffective"
+    if allow_linux and system == "linux" and LINUX_NETWORK_NAMESPACE_ERROR in error_text:
+        return "hosted_linux_network_namespace_unavailable"
+    return None
 
 
 def run(*argv: str, cwd: Path | None = None) -> str:
@@ -37,6 +57,11 @@ def main() -> int:
         action="store_true",
         help="Record the exact native-Windows deny-read ACL limitation without treating Agent execution as supported",
     )
+    parser.add_argument(
+        "--allow-known-linux-sandbox-unsupported",
+        action="store_true",
+        help="Record the exact hosted-Linux bwrap loopback limitation without treating Agent execution as supported",
+    )
     arguments = parser.parse_args()
     repository_root = Path(__file__).resolve().parents[1]
     mcp_script = repository_root / "plugins" / "workflow-environment-factory" / "scripts" / "mcp-server.mjs"
@@ -49,7 +74,10 @@ def main() -> int:
     codex_version = run(*command_prefix, "--version")
 
     try:
-        with tempfile.TemporaryDirectory(prefix="wef-read-isolation-") as temporary:
+        with tempfile.TemporaryDirectory(
+            prefix="wef-read-isolation-",
+            ignore_cleanup_errors=True,
+        ) as temporary:
             root = Path(temporary).resolve()
             data_dir = root / "factory-data"
             data_dir.mkdir()
@@ -92,10 +120,11 @@ def main() -> int:
             )
     except BaseException as error:
         error_text = f"{type(error).__name__}: {error}"
-        known_windows_unsupported = (
-            arguments.allow_known_windows_unsupported
-            and os.name == "nt"
-            and WINDOWS_DENY_READ_ACL_ERROR in str(error)
+        limitation = classify_known_unsupported(
+            error_text,
+            system=platform.system().lower(),
+            allow_windows=arguments.allow_known_windows_unsupported,
+            allow_linux=arguments.allow_known_linux_sandbox_unsupported,
         )
         evidence_path.write_text(
             json.dumps(
@@ -104,9 +133,9 @@ def main() -> int:
                     "platform": platform.system().lower(),
                     "machine": platform.machine().lower(),
                     "codex_version": codex_version,
-                    "status": "known_unsupported" if known_windows_unsupported else "failed",
+                    "status": "known_unsupported" if limitation is not None else "failed",
                     "agent_execution_supported": False,
-                    "limitation": "native_windows_deny_read_acl_unavailable" if known_windows_unsupported else None,
+                    "limitation": limitation,
                     "error": error_text,
                     "model_executed": False,
                 },
@@ -116,8 +145,8 @@ def main() -> int:
             + "\n",
             encoding="utf-8",
         )
-        if known_windows_unsupported:
-            print(f"Known unsupported native-Windows read isolation recorded: {evidence_path}")
+        if limitation is not None:
+            print(f"Known unsupported Codex sandbox capability recorded: {evidence_path}")
             return 0
         raise
 

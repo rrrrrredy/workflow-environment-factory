@@ -4,7 +4,7 @@ Workflow Environment Factory turns your own repository or Issue-to-PR process in
 
 It is not a public benchmark, an environment-outsourcing service, or a dashboard for watching an Agent. The useful output is a task pack you can keep, rerun, inspect, and improve as your repository and workflow change.
 
-> **Release status:** 0.2 technical preview. Linux x64 is the current Codex execution target and has hosted real-Docker gates. Windows 11 x64 can install the product and manage or validate Cases, but Codex 0.151.0 currently fails the required native-Windows deny-read preflight, so the Factory stops before any model call instead of executing a Case. Apple Silicon macOS has downloadable-product lifecycle evidence only; Docker task execution, a physical Mac, an ordinary user-owned clean machine, and an authenticated Codex Run were not tested.
+> **Release status:** 0.2 technical preview. Hosted Linux x64 runs the real-Docker gates, but its Codex sandbox currently fails while creating the required network namespace. Hosted Windows 11 either cannot apply or cannot enforce the required deny-read rule. Both are recorded as unsupported Agent-execution hosts, and the Factory stops before any model call. Apple Silicon macOS has downloadable-product lifecycle and read-isolation evidence, while Docker task execution, a physical Mac, an ordinary user-owned clean machine, and an authenticated Codex Run were not tested.
 
 ![Workflow Environment Factory Case matrix with fully synthetic data](docs/images/ui-desktop-case-factory-synthetic.png)
 
@@ -48,7 +48,9 @@ Requirements:
 
 Install and start the long-lived service from a normal host terminal: Windows Terminal or PowerShell on Windows, and Bash on Linux/macOS. Do not start it from inside an existing Codex sandbox. Every real Run performs a no-model workspace-sandbox preflight and stops as `environment_error` rather than falling back to unrestricted execution.
 
-> Native Windows Codex Case execution is currently unavailable because Codex cannot apply the deny-read ACL required to hide the Factory database and known-correct source. Installation, Blueprint/Case management, deterministic validators, import/export, and the UI remain usable. The preflight will automatically enable execution when the pinned Codex path can prove isolation; there is no unsafe override.
+> Native Windows Codex Case execution is currently unavailable because Codex either cannot apply the deny-read ACL or applies it without actually hiding the Factory database and known-correct source. Installation, Blueprint/Case management, deterministic validators, import/export, and the UI remain usable. The preflight will automatically enable execution only when the pinned Codex path proves isolation; there is no unsafe override.
+
+> On Ubuntu hosts where Codex reports `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`, managed Case execution is likewise unavailable. The deterministic Docker gates still run, but they do not replace a passing Agent sandbox preflight.
 
 On Windows, download `workflow-environment-factory-0.2.0-windows-x64.zip` and its `.sha256` file from the same GitHub Release. Verify the archive, extract it, inspect the installer, then run:
 
@@ -163,7 +165,7 @@ $env:WEF_PYTHON = 'C:\path\to\python.exe'
 .\scripts\Check.ps1 -InstallDependencies
 ```
 
-The regular check performs a strict React production build, exact Python version-constraint check, static analysis, the two focused golden scenarios, and plugin/MCP validation. Hosted Windows, Linux, and macOS then run the real no-model restricted-read gate. The Python file is not an artifact-hash lock. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Version 0.2.0 packaging records that the authenticated code and Issue-to-PR Agent gate was not run; that optional gate remains mandatory before any stable label.
+The regular check performs a strict React production build, exact Python version-constraint check, static analysis, the two focused golden scenarios, and plugin/MCP validation. Hosted Windows, Linux, and macOS then run the real no-model restricted-read gate; Windows and Linux currently produce explicit unsupported-host evidence, while macOS must pass. The Python file is not an artifact-hash lock. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Version 0.2.0 packaging records that the authenticated code and Issue-to-PR Agent gate was not run; that optional gate remains mandatory before any stable label.
 
 Current evidence and remaining gates are listed in [acceptance](docs/acceptance.md). The tag-to-release gates and fixed Docker input are documented in [release process](docs/release-process.md). Contributions are welcome under [CONTRIBUTING.md](CONTRIBUTING.md); security reports follow [SECURITY.md](SECURITY.md).
 

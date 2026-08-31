@@ -149,9 +149,11 @@ jobs:
           - os: ubuntu-24.04
             platform: linux
             skip_docker: '0'
+            read_isolation_args: '--allow-known-linux-sandbox-unsupported'
           - os: macos-14
             platform: macos
             skip_docker: '1'
+            read_isolation_args: ''
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -184,7 +186,7 @@ jobs:
           chmod +x "$root"/scripts/*.sh
           cd "$root"
           ./scripts/Acceptance-Portable.sh
-          .venv/bin/python spikes/codex_read_isolation_gate.py --codex codex --evidence "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-read-isolation.json"
+          .venv/bin/python spikes/codex_read_isolation_gate.py --codex codex ${{ matrix.read_isolation_args }} --evidence "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-read-isolation.json"
           mv "$WEF_PORTABLE_EVIDENCE_DIR/running.json" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-running.json"
           mv "$WEF_PORTABLE_EVIDENCE_DIR/absent.json" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-absent.json"
           mv "$WEF_PORTABLE_EVIDENCE_DIR/uninstall.txt" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-uninstall.txt"

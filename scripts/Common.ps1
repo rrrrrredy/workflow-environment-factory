@@ -243,23 +243,26 @@ function Get-WefDataDir([string]$Requested = "") {
 }
 
 function Assert-WefSafeDataPath([string]$DataDir) {
-  $resolved = [System.IO.Path]::GetFullPath($DataDir).TrimEnd('\')
-  $root = [System.IO.Path]::GetPathRoot($resolved).TrimEnd('\')
-  $profile = [System.IO.Path]::GetFullPath([Environment]::GetFolderPath("UserProfile")).TrimEnd('\')
+  $directorySeparators = [char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+  $pathComparison = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+  $separator = [string][System.IO.Path]::DirectorySeparatorChar
+  $resolved = [System.IO.Path]::GetFullPath($DataDir).TrimEnd($directorySeparators)
+  $root = [System.IO.Path]::GetPathRoot($resolved).TrimEnd($directorySeparators)
+  $profile = [System.IO.Path]::GetFullPath([Environment]::GetFolderPath("UserProfile")).TrimEnd($directorySeparators)
   $localAppData = if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { "" } else {
-    [System.IO.Path]::GetFullPath($env:LOCALAPPDATA).TrimEnd('\')
+    [System.IO.Path]::GetFullPath($env:LOCALAPPDATA).TrimEnd($directorySeparators)
   }
   $documentsFolder = [Environment]::GetFolderPath("MyDocuments")
   $documents = if ([string]::IsNullOrWhiteSpace($documentsFolder)) { "" } else {
-    [System.IO.Path]::GetFullPath($documentsFolder).TrimEnd('\')
+    [System.IO.Path]::GetFullPath($documentsFolder).TrimEnd($directorySeparators)
   }
   if ($resolved.Length -lt 12 -or $resolved -eq $root -or $resolved -eq $profile -or $resolved -eq $localAppData -or $resolved -eq $documents) {
     throw "Refusing to use an unsafe Workflow Environment Factory data path: $resolved"
   }
-  $checkout = [System.IO.Path]::GetFullPath($script:WefRoot).TrimEnd('\')
-  $dataInsideCheckout = $resolved.Equals($checkout, [StringComparison]::OrdinalIgnoreCase) -or
-    $resolved.StartsWith(($checkout + "\"), [StringComparison]::OrdinalIgnoreCase)
-  $checkoutInsideData = $checkout.StartsWith(($resolved + "\"), [StringComparison]::OrdinalIgnoreCase)
+  $checkout = [System.IO.Path]::GetFullPath($script:WefRoot).TrimEnd($directorySeparators)
+  $dataInsideCheckout = $resolved.Equals($checkout, $pathComparison) -or
+    $resolved.StartsWith(($checkout + $separator), $pathComparison)
+  $checkoutInsideData = $checkout.StartsWith(($resolved + $separator), $pathComparison)
   if ($dataInsideCheckout -or $checkoutInsideData) {
     throw "Refusing a data path that overlaps the Workflow Environment Factory source checkout: $resolved"
   }
