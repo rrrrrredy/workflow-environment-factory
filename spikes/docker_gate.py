@@ -7,8 +7,27 @@ from pathlib import Path
 from synthetic_server import blueprint_payload, create_repository, make_correct
 from workflow_environment_factory.config import Settings, ensure_factory_data_root
 from workflow_environment_factory.engine import DockerEngine
-from workflow_environment_factory.models import RecordingEvent
+from workflow_environment_factory.models import CaseRecord, RecordingEvent
 from workflow_environment_factory.services import Services
+
+
+def require_objective_gates(label: str, cases: list[CaseRecord]) -> None:
+    diagnostics = [
+        {
+            "case_id": str(case.case_id),
+            "variable": case.variable_value,
+            "baseline_status": case.validation.baseline_status,
+            "baseline_exit_code": case.validation.baseline_exit_code,
+            "solution_status": case.validation.solution_status,
+            "solution_exit_code": case.validation.solution_exit_code,
+            "reset_verified": case.validation.reset_verified,
+            "objective_gate_passed": case.validation.objective_gate_passed,
+            "details": case.validation.details,
+        }
+        for case in cases
+    ]
+    if len(cases) != 3 or not all(case.validation.objective_gate_passed for case in cases):
+        raise RuntimeError(f"{label} objective gates failed: {json.dumps(diagnostics, sort_keys=True)}")
 
 
 def main() -> None:
@@ -61,8 +80,8 @@ def main() -> None:
         )
         code_cases = services.factory.generate_cases(code_blueprint.blueprint_id)
         issue_cases = services.factory.generate_cases(issue_blueprint.blueprint_id)
-        assert len(code_cases) == 3 and all(case.validation.objective_gate_passed for case in code_cases)
-        assert len(issue_cases) == 3 and all(case.validation.objective_gate_passed for case in issue_cases)
+        require_objective_gates("code", code_cases)
+        require_objective_gates("issue-to-pr", issue_cases)
         assert all(case.protocol_case["provenance"]["confirmed_by_user"] for case in code_cases + issue_cases)
 
         code_wrong = services.factory.prepare_run(code_cases[0].case_id)

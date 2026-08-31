@@ -91,7 +91,7 @@ $selector = "workflow-environment-factory@workflow-environment-factory"
 $marketplace = "workflow-environment-factory"
 $startupDirectory = [Environment]::GetFolderPath("Startup")
 $shortcutPath = Join-Path $startupDirectory "Workflow Environment Factory.lnk"
-$environmentNames = @("CODEX_HOME", "WEF_DATA_DIR", "WEF_PORT")
+$environmentNames = @("CODEX_HOME", "WEF_DATA_DIR", "WEF_PORT", "WEF_HOST")
 $previousEnvironment = @{}
 foreach ($name in $environmentNames) {
   $previousEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
@@ -106,6 +106,7 @@ try {
   [Environment]::SetEnvironmentVariable("CODEX_HOME", $acceptanceCodexHome, "Process")
   [Environment]::SetEnvironmentVariable("WEF_DATA_DIR", $acceptanceData, "Process")
   [Environment]::SetEnvironmentVariable("WEF_PORT", [string]$Port, "Process")
+  [Environment]::SetEnvironmentVariable("WEF_HOST", "127.0.0.1", "Process")
 
   $initialPlugins = Invoke-CodexText @("plugin", "list")
   $initialMarketplaces = Invoke-CodexText @("plugin", "marketplace", "list")
