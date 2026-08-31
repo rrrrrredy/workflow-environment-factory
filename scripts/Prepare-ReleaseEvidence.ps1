@@ -28,8 +28,8 @@ try {
   if ($null -eq $codexCommand) { $codexCommand = Get-Command codex -ErrorAction SilentlyContinue }
   if ($null -eq $codexCommand) { throw "Codex CLI is required for the authenticated product gate." }
   $codexVersion = (& $codexCommand.Source --version 2>&1 | Out-String).Trim()
-  if ($codexVersion -notmatch '0\.150\.0-alpha\.8') {
-    throw "The release gate requires Codex 0.150.0-alpha.8; found $codexVersion."
+  if ($codexVersion -notmatch '0\.151\.0') {
+    throw "The release gate requires Codex 0.151.0; found $codexVersion."
   }
 
   if ($null -ne (Get-WefHealth $Port)) { throw "Port $Port is already serving a local application." }

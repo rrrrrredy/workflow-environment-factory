@@ -65,7 +65,12 @@ class Services:
             recordings=recordings,
             factory=factory,
             scorer=scorer,
-            runner=CodexRunner(store, settings.codex_executable, port=settings.port),
+            runner=CodexRunner(
+                store,
+                settings.codex_executable,
+                port=settings.port,
+                token_path=settings.token_path,
+            ),
         )
 
     def close(self) -> None:

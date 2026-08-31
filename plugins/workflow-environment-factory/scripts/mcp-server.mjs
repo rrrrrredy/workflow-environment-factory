@@ -1,7 +1,3 @@
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-
 const tools = [
   {
     name: "wef_get_run",
@@ -19,8 +15,11 @@ const tools = [
     inputSchema: {
       type: "object",
       additionalProperties: false,
-      required: ["case_id"],
-      properties: { case_id: { type: "string", format: "uuid" } }
+      required: ["run_id", "case_id"],
+      properties: {
+        run_id: { type: "string", format: "uuid" },
+        case_id: { type: "string", format: "uuid" }
+      }
     }
   },
   {
@@ -78,14 +77,22 @@ const tools = [
   }
 ];
 
-function dataRoot() {
-  if (process.env.WEF_DATA_DIR) return process.env.WEF_DATA_DIR;
-  if (process.env.LOCALAPPDATA) return join(process.env.LOCALAPPDATA, "WorkflowEnvironmentFactory");
-  return join(homedir(), ".workflow-environment-factory");
+function token() {
+  const value = process.env.WEF_AGENT_TOKEN?.trim();
+  if (!value) throw new Error("WEF_AGENT_TOKEN is required");
+  return value;
 }
 
-function token() {
-  return readFileSync(join(dataRoot(), "session-token"), "utf8").trim();
+function activeRunId() {
+  const value = process.env.WEF_RUN_ID?.trim().toLowerCase();
+  if (!value) throw new Error("WEF_RUN_ID is required");
+  return value;
+}
+
+function requireActiveRun(args) {
+  if (String(args.run_id ?? "").toLowerCase() !== activeRunId()) {
+    throw new Error("This MCP process is restricted to its active Run");
+  }
 }
 
 async function api(path, options = {}) {
@@ -111,9 +118,16 @@ async function api(path, options = {}) {
 }
 
 async function callTool(name, args) {
-  const runId = args.run_id ? encodeURIComponent(args.run_id) : "";
+  requireActiveRun(args);
+  const runId = encodeURIComponent(activeRunId());
   if (name === "wef_get_run") return api(`/api/agent/runs/${runId}`);
-  if (name === "wef_get_case") return api(`/api/agent/cases/${encodeURIComponent(args.case_id)}`);
+  if (name === "wef_get_case") {
+    const payload = await api(`/api/agent/runs/${runId}`);
+    if (String(payload?.run?.case_id ?? "").toLowerCase() !== String(args.case_id ?? "").toLowerCase()) {
+      throw new Error("The requested Case does not belong to the active Run");
+    }
+    return payload.case;
+  }
   if (name === "wef_get_issue") {
     return api(`/api/simulator/runs/${runId}/issues/${encodeURIComponent(args.issue_key)}`);
   }

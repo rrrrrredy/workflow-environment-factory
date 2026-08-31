@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -12,6 +13,13 @@ from .auth import load_or_create_token
 from .config import Settings
 from .engine import DockerEngine
 from .services import Services
+
+_MINIMUM_CODEX_VERSION = (0, 151, 0)
+
+
+def codex_version_supported(output: str) -> bool:
+    match = re.search(r"\bcodex-cli\s+(\d+)\.(\d+)\.(\d+)", output)
+    return match is not None and tuple(int(part) for part in match.groups()) >= _MINIMUM_CODEX_VERSION
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -33,6 +41,7 @@ def doctor(settings: Settings) -> int:
     if docker.status != "pass":
         failures.append(f"Docker: {docker.stderr or docker.stdout or 'unavailable'}")
     codex_path = shutil.which(settings.codex_executable)
+    codex_supported = False
     if codex_path is None:
         failures.append(f"Codex: executable not found: {settings.codex_executable}")
     else:
@@ -46,10 +55,14 @@ def doctor(settings: Settings) -> int:
         )
         if codex.returncode != 0:
             failures.append(f"Codex: {codex.stderr or codex.stdout or 'version check failed'}")
+        elif not codex_version_supported(f"{codex.stdout}\n{codex.stderr}"):
+            failures.append("Codex: version 0.151.0 or newer is required for fail-closed restricted reads")
+        else:
+            codex_supported = True
     print(f"Data directory: {settings.data_dir}")
     print(f"Protocol schemas: {settings.protocol_schema_dir}")
     print(f"Docker: {docker.status}")
-    print(f"Codex: {'pass' if codex_path is not None else 'error'}")
+    print(f"Codex: {'pass' if codex_supported else 'error'}")
     for failure in failures:
         print(f"FAIL {failure}")
     return 0 if not failures else 1

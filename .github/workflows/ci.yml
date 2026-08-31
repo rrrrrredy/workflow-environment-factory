@@ -39,7 +39,10 @@ jobs:
           $protocolRoot = (Resolve-Path ..\protocol).Path
           .\scripts\Check.ps1 -InstallDependencies -ProtocolRoot $protocolRoot
       - name: Install pinned Codex CLI for clean lifecycle acceptance
-        run: npm install --global @openai/codex@0.150.0-alpha.8
+        run: npm install --global @openai/codex@0.151.0
+      - name: Prove the Agent shell cannot read the product database or source solution
+        run: |
+          .\.venv\Scripts\python.exe .\spikes\codex_read_isolation_gate.py --codex codex --evidence (Join-Path $env:RUNNER_TEMP "factory-windows-read-isolation.json")
       - name: Verify Windows install, start, preserve, reinstall, delete, and uninstall
         run: |
           $protocolRoot = (Resolve-Path ..\protocol).Path
@@ -65,6 +68,13 @@ jobs:
         with:
           name: factory-installation-evidence
           path: ${{ runner.temp }}\factory-installation-evidence.json
+          if-no-files-found: error
+      - name: Upload Windows read-isolation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: factory-windows-read-isolation-evidence
+          path: ${{ runner.temp }}\factory-windows-read-isolation.json
           if-no-files-found: error
 
   docker-golden:
@@ -94,7 +104,7 @@ jobs:
           cache: pip
           cache-dependency-path: product/requirements.lock
       - name: Install pinned Codex CLI for doctor
-        run: npm install --global @openai/codex@0.150.0-alpha.8
+        run: npm install --global @openai/codex@0.151.0
       - name: Run Docker code and Issue-to-PR gates
         shell: pwsh
         run: |
@@ -144,12 +154,18 @@ jobs:
           python -m venv .venv
           .venv/bin/python -m pip install --disable-pip-version-check --constraint requirements.lock --editable '.[dev]'
           npm run build:web
-          .venv/bin/python -m ruff check backend tests spikes/synthetic_server.py spikes/docker_gate.py spikes/real_codex_gate.py
+          .venv/bin/python -m ruff check backend tests spikes/synthetic_server.py spikes/docker_gate.py spikes/real_codex_gate.py spikes/codex_read_isolation_gate.py
           .venv/bin/python -m pytest -q
           npm run test:portable
           node scripts/validate-plugin.mjs
       - name: Install pinned Codex CLI for isolated plugin lifecycle
-        run: npm install --global @openai/codex@0.150.0-alpha.8
+        run: npm install --global @openai/codex@0.151.0
+      - name: Prove the Agent shell cannot read the product database or source solution
+        env:
+          WEF_READ_ISOLATION_EVIDENCE_DIR: ${{ runner.temp }}/factory-portable-evidence
+        run: |
+          mkdir -p "$WEF_READ_ISOLATION_EVIDENCE_DIR"
+          .venv/bin/python spikes/codex_read_isolation_gate.py --codex codex --evidence "$WEF_READ_ISOLATION_EVIDENCE_DIR/factory-${{ matrix.platform }}-read-isolation.json"
       - name: Install, start, inspect, restart, uninstall, and prove absence
         env:
           CODEX_HOME: ${{ runner.temp }}/codex-home

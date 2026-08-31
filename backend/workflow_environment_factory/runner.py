@@ -8,6 +8,8 @@ from typing import Protocol
 from uuid import UUID
 
 from .app_server_preflight import CodexWorkspacePreflight
+from .auth import derive_agent_token, load_or_create_token
+from .codex_permissions import permission_profile_cli_args
 from .gitops import GitWorkspaceManager
 from .models import AttemptOrigin, BlueprintKind, RunStatus, utc_now
 from .redaction import redact
@@ -15,7 +17,16 @@ from .store import FactoryStore
 
 
 class WorkspacePreflight(Protocol):
-    def check(self, workspace: Path, environment: dict[str, str]) -> None: ...
+    def check(
+        self,
+        workspace: Path,
+        environment: dict[str, str],
+        *,
+        database_path: Path,
+        repository_root: Path,
+        solution_commit: str,
+        mcp_script: Path,
+    ) -> None: ...
 
 
 _MANAGED_GIT_ENVIRONMENT = (
@@ -40,13 +51,15 @@ def build_codex_command(
     environment: dict[str, str],
     *,
     mcp_script: Path,
-    data_dir: Path,
+    agent_token: str,
+    run_id: UUID | str,
     port: int,
 ) -> list[str]:
     git_environment = ",".join(
         f"{name}={_toml_string(environment[name])}" for name in _MANAGED_GIT_ENVIRONMENT
     )
     node_executable = environment.get("WEF_NODE", "node")
+    git_dir = Path(environment["GIT_DIR"])
     return [
         executable,
         "exec",
@@ -81,10 +94,7 @@ def build_codex_command(
         "tool_suggest",
         "-c",
         'web_search="disabled"',
-        "-c",
-        "sandbox_workspace_write.network_access=false",
-        "-c",
-        "sandbox_workspace_write.writable_roots=[]",
+        *permission_profile_cli_args(git_dir=git_dir, mcp_script=mcp_script),
         "-c",
         'shell_environment_policy.inherit="core"',
         "-c",
@@ -100,13 +110,13 @@ def build_codex_command(
         "-c",
         (
             "mcp_servers.workflow-environment-factory.env="
-            f"{{WEF_DATA_DIR={_toml_string(str(data_dir.resolve()))},WEF_PORT={_toml_string(str(port))}}}"
+            f"{{WEF_AGENT_TOKEN={_toml_string(agent_token)},"
+            f"WEF_RUN_ID={_toml_string(str(UUID(str(run_id))))},WEF_PORT={_toml_string(str(port))}}}"
         ),
         "-c",
         "mcp_servers.workflow-environment-factory.required=true",
-        "--sandbox",
-        "workspace-write",
-        "--approve-for-me",
+        "--ask-for-approval",
+        "never",
         "--thread-source",
         "workflow-environment-factory",
         "-C",
@@ -140,6 +150,7 @@ class CodexRunner:
         preflight: WorkspacePreflight | None = None,
         port: int = 43121,
         mcp_script: Path | None = None,
+        token_path: Path | None = None,
     ):
         self.store = store
         self.executable = executable
@@ -152,6 +163,7 @@ class CodexRunner:
             / "scripts"
             / "mcp-server.mjs"
         )
+        self.token_path = token_path or (self.store.database_path.parent / "session-token")
 
     def execute(self, run_id: UUID | str) -> None:
         run = self.store.get_run(run_id)
@@ -182,7 +194,14 @@ class CodexRunner:
         workspace = Path(run.workspace_path).resolve()
         environment = GitWorkspaceManager.isolated_environment(workspace)
         try:
-            self.preflight.check(workspace, environment)
+            self.preflight.check(
+                workspace,
+                environment,
+                database_path=self.store.database_path,
+                repository_root=Path(blueprint.repository_root),
+                solution_commit=blueprint.solution_commit,
+                mcp_script=self.mcp_script,
+            )
         except Exception as error:
             run.status = RunStatus.ENVIRONMENT_ERROR
             run.error = str(redact(f"Codex workspace preflight failed before model execution: {error}"))
@@ -202,7 +221,8 @@ class CodexRunner:
             prompt,
             environment,
             mcp_script=self.mcp_script,
-            data_dir=self.store.database_path.parent,
+            agent_token=derive_agent_token(load_or_create_token(self.token_path), run.run_id),
+            run_id=run.run_id,
             port=self.port,
         )
         run.status = RunStatus.RUNNING

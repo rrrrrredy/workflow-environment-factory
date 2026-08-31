@@ -7,7 +7,7 @@
 - Python 3.11-3.13
 - Node.js 22.x
 - Git
-- Codex CLI/Desktop with `codex` on `PATH`
+- Codex CLI 0.151.0 or newer with `codex` on `PATH`
 - PowerShell 7 on Windows, or Bash on Linux/macOS
 
 Windows uses the readable PowerShell lifecycle. Linux and macOS use the readable shell/Node lifecycle. Neither path requires administrator privileges.

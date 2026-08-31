@@ -23,8 +23,8 @@ try {
   }
   $expectedImage = "python:3.11.16-slim-bookworm@sha256:0bee7276f83efd4a1ee05bbbf4281d95ed28e079220a9457f25a93e3f1e3c31b"
   if ($evidence.dockerImage -ne $expectedImage) { throw "Release evidence used another Docker image." }
-  if ([string]$evidence.codexVersion -notmatch '0\.150\.0-alpha\.8') {
-    throw "Release evidence was not produced with supported Codex 0.150.0-alpha.8."
+  if ([string]$evidence.codexVersion -notmatch '0\.151\.0') {
+    throw "Release evidence was not produced with supported Codex 0.151.0."
   }
   $required = @(
     ([int]$evidence.cases.codeGenerated -eq 3),

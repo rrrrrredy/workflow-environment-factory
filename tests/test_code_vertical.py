@@ -155,8 +155,8 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
 
 def test_codex_preflight_failure_is_environment_error_without_model_score(services, repository_fixture) -> None:
     class FailingPreflight:
-        def check(self, workspace: Path, environment: dict[str, str]) -> None:
-            del workspace, environment
+        def check(self, workspace: Path, environment: dict[str, str], **kwargs) -> None:
+            del workspace, environment, kwargs
             raise RuntimeError("windows sandbox failed Bear" + "er synthetic-preflight-secret-12345678")
 
     blueprint = services.factory.create_blueprint(code_blueprint(repository_fixture))

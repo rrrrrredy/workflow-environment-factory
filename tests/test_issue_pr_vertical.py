@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import uuid4
 
 from conftest import RepositoryFixture, make_code_correct, mark_synthetic_agent_attempt
 from fastapi.testclient import TestClient
 from workflow_environment_factory.app import create_app
+from workflow_environment_factory.auth import derive_agent_token
 from workflow_environment_factory.models import BlueprintCreate, RecordingEvent
 
 
@@ -78,6 +80,21 @@ def test_recorded_issue_pr_case_requires_code_and_database_state(services, repos
         assert repository_fixture.solution_commit not in agent_payload
         assert blueprint.solution_patch_digest not in agent_payload
         assert "provenance" not in agent_case.json()
+
+        scoped_run = services.factory.prepare_run(cases[0].case_id)
+        try:
+            scoped_token = derive_agent_token(token, scoped_run.run_id)
+            scoped_headers = {"authorization": f"Bearer {scoped_token}"}
+            assert client.get(f"/api/agent/runs/{scoped_run.run_id}", headers=scoped_headers).status_code == 200
+            assert (
+                client.get(f"/api/simulator/runs/{scoped_run.run_id}/events", headers=scoped_headers).status_code
+                == 200
+            )
+            assert client.get("/api/blueprints", headers=scoped_headers).status_code == 401
+            assert client.get(f"/api/agent/cases/{cases[0].case_id}", headers=scoped_headers).status_code == 401
+            assert client.get(f"/api/agent/runs/{uuid4()}", headers=scoped_headers).status_code == 401
+        finally:
+            services.factory.cleanup_run(scoped_run.run_id)
 
     wrong_run = services.factory.prepare_run(cases[0].case_id)
     make_code_correct(Path(wrong_run.workspace_path))

@@ -43,7 +43,7 @@ jobs:
           cache-dependency-path: product/requirements.lock
       - name: Install pinned Codex CLI for doctor
         working-directory: product
-        run: npm install --global @openai/codex@0.150.0-alpha.8
+        run: npm install --global @openai/codex@0.151.0
       - name: Build, verify real Docker gates, and package
         shell: pwsh
         working-directory: product
@@ -52,6 +52,7 @@ jobs:
           $protocolRoot = (Resolve-Path ../protocol).Path
           ./scripts/Package-Release.ps1 -Version $version -ProtocolRoot $protocolRoot -OutputDirectory (Join-Path $env:GITHUB_WORKSPACE "candidate")
           node scripts/Package-Portable-Release.mjs --version $version --output (Join-Path $env:GITHUB_WORKSPACE "candidate")
+          ./.venv/bin/python ./spikes/codex_read_isolation_gate.py --codex codex --evidence (Join-Path $env:GITHUB_WORKSPACE "candidate/factory-linux-build-read-isolation.json")
       - name: Run release UI gate
         working-directory: product
         env:
@@ -80,7 +81,7 @@ jobs:
           python-version: '3.13.13'
       - name: Install pinned Codex CLI for archive lifecycle acceptance
         shell: pwsh
-        run: npm install --global @openai/codex@0.150.0-alpha.8
+        run: npm install --global @openai/codex@0.151.0
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: factory-release-candidate
@@ -100,6 +101,8 @@ jobs:
           $releaseRoot = Join-Path $extractRoot "workflow-environment-factory-$version"
           $evidencePath = Join-Path $env:RUNNER_TEMP "factory-installation-evidence.json"
           & (Join-Path $releaseRoot "scripts\Acceptance-InstallUninstall.ps1") -UseDockerStub -EvidencePath $evidencePath
+          $readIsolationPath = Join-Path $env:RUNNER_TEMP "factory-windows-read-isolation.json"
+          & (Join-Path $releaseRoot ".venv\Scripts\python.exe") (Join-Path $releaseRoot "spikes\codex_read_isolation_gate.py") --codex codex --evidence $readIsolationPath
           $evidence = Get-Content -LiteralPath $evidencePath -Raw | ConvertFrom-Json
           if ($evidence.schema_version -ne "product.installation-acceptance.v3") { throw "Unsupported installation evidence schema." }
           if ($evidence.source_kind -ne "release_archive") { throw "Acceptance did not run from the release archive." }
@@ -131,7 +134,9 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: factory-installation-evidence
-          path: ${{ runner.temp }}\factory-installation-evidence.json
+          path: |
+            ${{ runner.temp }}\factory-installation-evidence.json
+            ${{ runner.temp }}\factory-windows-read-isolation.json
           if-no-files-found: error
 
   portable-lifecycle:
@@ -156,7 +161,7 @@ jobs:
         with:
           python-version: '3.13.13'
       - name: Install pinned Codex CLI
-        run: npm install --global @openai/codex@0.150.0-alpha.8
+        run: npm install --global @openai/codex@0.151.0
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: factory-release-candidate
@@ -179,6 +184,7 @@ jobs:
           chmod +x "$root"/scripts/*.sh
           cd "$root"
           ./scripts/Acceptance-Portable.sh
+          .venv/bin/python spikes/codex_read_isolation_gate.py --codex codex --evidence "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-read-isolation.json"
           mv "$WEF_PORTABLE_EVIDENCE_DIR/running.json" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-running.json"
           mv "$WEF_PORTABLE_EVIDENCE_DIR/absent.json" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-absent.json"
           mv "$WEF_PORTABLE_EVIDENCE_DIR/uninstall.txt" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-uninstall.txt"
@@ -228,6 +234,7 @@ jobs:
             artifacts/*-running.json
             artifacts/*-absent.json
             artifacts/*-uninstall.txt
+            artifacts/*-read-isolation.json
       - name: Publish GitHub Release
         shell: pwsh
         env:

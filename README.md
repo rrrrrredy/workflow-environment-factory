@@ -43,7 +43,7 @@ Requirements:
 - Python 3.11, 3.12, or 3.13;
 - Node.js 22.x;
 - Git;
-- Codex CLI/Desktop with `codex` on `PATH`;
+- Codex CLI 0.151.0 or newer with `codex` on `PATH`;
 - PowerShell 7 on Windows, or Bash on Linux/macOS.
 
 Install and start the long-lived service from a normal host terminal: Windows Terminal or PowerShell on Windows, and Bash on Linux/macOS. Do not start it from inside an existing Codex sandbox. Every real Run performs a no-model workspace-sandbox preflight and stops as `environment_error` rather than falling back to unrestricted execution.
@@ -111,7 +111,8 @@ See [installation and removal](docs/installation.md) for every state change and 
 - The Issue/PR simulator is local SQLite. It never calls GitHub, Linear, or a production account.
 - Repository paths and diagnostic content stay on the machine. Protocol exports are explicit user actions.
 - The solution revision is used to prove the Case during generation. Agent-facing MCP responses omit its commit and patch digest, and the Run's shallow object database contains only the baseline lineage needed for that snapshot.
-- Before a model call, App Server proves that the exact Run directory supports an offline `workspaceWrite` sandbox. The actual Codex command repeats network-off and no-extra-writable-root settings, uses an ephemeral thread, disables ambient user config, plugins, Hooks, Web search, apps, memories, computer use, image generation, and multi-Agent tools, explicitly registers only the local Factory MCP server, and gives model-generated commands only core environment variables plus the isolated Git variables required for `status` and `diff`.
+- Before a model call, App Server uses the same restricted permission profile as the real Run. A no-model shell must write inside the generated workspace while failing to read the Factory database and failing to run `git show` against the source repository's known-correct commit. Any platform that cannot enforce those reads stops with `environment_error`; there is no broader fallback.
+- The Factory MCP receives a token derived for one Run. It can read that Run's bounded Case and operate that Run's local simulator, while Blueprint routes, factory evidence, another Run, and the user-facing API remain unauthorized. The actual Codex command uses an ephemeral thread, disables ambient user config, plugins, Hooks, Web search, apps, memories, computer use, image generation, and multi-Agent tools, and gives model-generated commands only core variables plus the isolated Git variables required for `status` and `diff`.
 
 Read [security and local data](docs/security-and-data.md) before using the preview on a sensitive repository.
 
@@ -160,7 +161,7 @@ $env:WEF_PYTHON = 'C:\path\to\python.exe'
 .\scripts\Check.ps1 -InstallDependencies
 ```
 
-The regular check performs a strict React production build, exact Python version-constraint check, static analysis, the two focused golden scenarios, and plugin/MCP validation. The Python file is not an artifact-hash lock. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Version 0.2.0 packaging records that the authenticated code and Issue-to-PR Agent gate was not run; that optional gate and ordinary user-owned acceptance remain mandatory before any stable label.
+The regular check performs a strict React production build, exact Python version-constraint check, static analysis, the two focused golden scenarios, and plugin/MCP validation. Hosted Windows, Linux, and macOS then run the real no-model restricted-read gate. The Python file is not an artifact-hash lock. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Version 0.2.0 packaging records that the authenticated code and Issue-to-PR Agent gate was not run; that optional gate remains mandatory before any stable label.
 
 Current evidence and remaining gates are listed in [acceptance](docs/acceptance.md). The tag-to-release gates and fixed Docker input are documented in [release process](docs/release-process.md). Contributions are welcome under [CONTRIBUTING.md](CONTRIBUTING.md); security reports follow [SECURITY.md](SECURITY.md).
 

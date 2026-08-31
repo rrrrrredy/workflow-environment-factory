@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from .auth import load_or_create_token, token_matches
+from .auth import agent_token_matches, load_or_create_token, token_matches
 from .engine import DockerEngine
 from .models import BlueprintCreate, ProtocolDocumentRecord, RecordingEvent, RunStatus
 from .redaction import redact
@@ -51,6 +51,17 @@ def _bearer(value: str | None) -> str | None:
     if value is None or not value.lower().startswith("bearer "):
         return None
     return value[7:].strip()
+
+
+def _agent_run_id(path: str) -> UUID | None:
+    for prefix in ("/api/agent/runs/", "/api/simulator/runs/"):
+        if path.startswith(prefix):
+            candidate = path[len(prefix) :].split("/", 1)[0]
+            try:
+                return UUID(candidate)
+            except ValueError:
+                return None
+    return None
 
 
 def _agent_case_view(case: Any) -> dict[str, Any]:
@@ -93,7 +104,13 @@ def create_app(services: Services) -> FastAPI:
         if request.url.path.startswith("/api/"):
             authorization = request.headers.get("authorization")
             cookie = request.cookies.get("wef_session")
-            if not token_matches(session_token, _bearer(authorization) or cookie):
+            bearer = _bearer(authorization)
+            global_access = token_matches(session_token, bearer or cookie)
+            scoped_run_id = _agent_run_id(request.url.path)
+            scoped_access = scoped_run_id is not None and agent_token_matches(
+                session_token, scoped_run_id, bearer
+            )
+            if not global_access and not scoped_access:
                 return Response(
                     content='{"error":"authentication_required"}', status_code=401, media_type="application/json"
                 )
