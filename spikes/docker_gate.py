@@ -7,7 +7,7 @@ from pathlib import Path
 from synthetic_server import blueprint_payload, create_repository, make_correct
 from workflow_environment_factory.config import Settings, ensure_factory_data_root
 from workflow_environment_factory.engine import DockerEngine
-from workflow_environment_factory.models import CaseRecord, RecordingEvent
+from workflow_environment_factory.models import CaseRecord, RecordingEvent, RunStatus
 from workflow_environment_factory.services import Services
 
 
@@ -28,6 +28,20 @@ def require_objective_gates(label: str, cases: list[CaseRecord]) -> None:
     ]
     if len(cases) != 3 or not all(case.validation.objective_gate_passed for case in cases):
         raise RuntimeError(f"{label} objective gates failed: {json.dumps(diagnostics, sort_keys=True)}")
+
+
+def mark_synthetic_attempt(services: Services, run):
+    run.agent_attempted = True
+    run.status = RunStatus.COMPLETED
+    run.codex_events.append(
+        {
+            "type": "gate.synthetic_attempt",
+            "source": "hand-applied-docker-fixture",
+            "model_executed": False,
+        }
+    )
+    services.store.save_run(run)
+    return run
 
 
 def main() -> None:
@@ -86,15 +100,18 @@ def main() -> None:
 
         code_wrong = services.factory.prepare_run(code_cases[0].case_id)
         runs.append(code_wrong.run_id)
+        mark_synthetic_attempt(services, code_wrong)
         assert services.scorer.score(code_wrong.run_id)["task_result"]["status"] == "fail"
         code_correct = services.factory.prepare_run(code_cases[1].case_id)
         runs.append(code_correct.run_id)
         make_correct(Path(code_correct.workspace_path))
+        mark_synthetic_attempt(services, code_correct)
         assert services.scorer.score(code_correct.run_id)["task_result"]["status"] == "pass"
 
         issue_wrong = services.factory.prepare_run(issue_cases[0].case_id)
         runs.append(issue_wrong.run_id)
         make_correct(Path(issue_wrong.workspace_path))
+        mark_synthetic_attempt(services, issue_wrong)
         assert services.scorer.score(issue_wrong.run_id)["task_result"]["status"] == "fail"
         issue_correct = services.factory.prepare_run(issue_cases[2].case_id)
         runs.append(issue_correct.run_id)
@@ -110,6 +127,7 @@ def main() -> None:
             linked_issue_key="APP-gamma",
         )
         services.simulator.update_issue_status(database, "APP-gamma", "in_review")
+        mark_synthetic_attempt(services, issue_correct)
         assert services.scorer.score(issue_correct.run_id)["task_result"]["status"] == "pass"
         output = {
             "engine": services.engine.name,
@@ -122,6 +140,7 @@ def main() -> None:
             "issue_correct": "pass",
             "reset_gates": "all_passed",
             "provenance": "all_confirmed",
+            "attempt_evidence": "fully synthetic hand-applied fixtures; no model execution",
         }
         print(json.dumps(output, indent=2))
     finally:

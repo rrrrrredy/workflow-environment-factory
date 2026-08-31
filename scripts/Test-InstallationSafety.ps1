@@ -48,38 +48,47 @@ try {
   try { Assert-WefSafeDataPath ([System.IO.Path]::GetPathRoot($testRoot)) | Out-Null } catch { $unsafeRejected = $true }
   if (-not $unsafeRejected) { throw "A drive root was accepted as product data." }
 
-  $shell = New-Object -ComObject WScript.Shell
-  $foreignShortcutPath = Join-Path $testRoot "foreign-shortcut.lnk"
-  $foreignShortcut = $shell.CreateShortcut($foreignShortcutPath)
-  $foreignShortcut.TargetPath = (Get-Command notepad.exe -ErrorAction Stop).Source
-  $foreignShortcut.WorkingDirectory = $testRoot
-  $foreignShortcut.Description = "Foreign installation-safety fixture"
-  $foreignShortcut.Save()
-  $foreignHash = (Get-FileHash -LiteralPath $foreignShortcutPath -Algorithm SHA256).Hash
-  $foreignShortcutRejected = $false
-  try { Assert-WefStartupShortcutAvailable $foreignShortcutPath } catch { $foreignShortcutRejected = $true }
-  if (-not $foreignShortcutRejected -or (Remove-WefOwnedStartupShortcut $foreignShortcutPath)) {
-    throw "A foreign same-name shortcut was accepted or removed."
-  }
-  if ((Get-FileHash -LiteralPath $foreignShortcutPath -Algorithm SHA256).Hash -ne $foreignHash) {
-    throw "A foreign same-name shortcut was modified."
-  }
+  if ($IsWindows) {
+    $shell = New-Object -ComObject WScript.Shell
+    $foreignShortcutPath = Join-Path $testRoot "foreign-shortcut.lnk"
+    $foreignShortcut = $shell.CreateShortcut($foreignShortcutPath)
+    $foreignShortcut.TargetPath = (Get-Command notepad.exe -ErrorAction Stop).Source
+    $foreignShortcut.WorkingDirectory = $testRoot
+    $foreignShortcut.Description = "Foreign installation-safety fixture"
+    $foreignShortcut.Save()
+    [Runtime.InteropServices.Marshal]::FinalReleaseComObject($foreignShortcut) | Out-Null
+    $foreignShortcut = $null
+    $foreignHash = (Get-FileHash -LiteralPath $foreignShortcutPath -Algorithm SHA256).Hash
+    $foreignShortcutRejected = $false
+    try { Assert-WefStartupShortcutAvailable $foreignShortcutPath } catch { $foreignShortcutRejected = $true }
+    if (-not $foreignShortcutRejected -or (Remove-WefOwnedStartupShortcut $foreignShortcutPath)) {
+      throw "A foreign same-name shortcut was accepted or removed."
+    }
+    if ((Get-FileHash -LiteralPath $foreignShortcutPath -Algorithm SHA256).Hash -ne $foreignHash) {
+      throw "A foreign same-name shortcut was modified."
+    }
 
-  $ownedShortcutPath = Join-Path $testRoot "owned-shortcut.lnk"
-  $powerShellCommand = Get-Command pwsh.exe -ErrorAction SilentlyContinue
-  if ($null -eq $powerShellCommand) { $powerShellCommand = Get-Command powershell.exe -ErrorAction Stop }
-  $ownedShortcut = $shell.CreateShortcut($ownedShortcutPath)
-  $ownedShortcut.TargetPath = $powerShellCommand.Source
-  $ownedShortcut.Arguments = "-NoProfile -File `"$(Join-Path $PSScriptRoot 'Start.ps1')`""
-  $ownedShortcut.WorkingDirectory = $script:WefRoot
-  $ownedShortcut.Description = Get-WefStartupShortcutDescription
-  $ownedShortcut.Save()
-  Assert-WefStartupShortcutAvailable $ownedShortcutPath
-  if (-not (Remove-WefOwnedStartupShortcut $ownedShortcutPath) -or (Test-Path -LiteralPath $ownedShortcutPath)) {
-    throw "An owned shortcut was not removed."
+    $ownedShortcutPath = Join-Path $testRoot "owned-shortcut.lnk"
+    $powerShellCommand = Get-Command pwsh.exe -ErrorAction SilentlyContinue
+    if ($null -eq $powerShellCommand) { $powerShellCommand = Get-Command powershell.exe -ErrorAction Stop }
+    $ownedShortcut = $shell.CreateShortcut($ownedShortcutPath)
+    $ownedShortcut.TargetPath = $powerShellCommand.Source
+    $ownedShortcut.Arguments = "-NoProfile -File `"$(Join-Path $PSScriptRoot 'Start.ps1')`""
+    $ownedShortcut.WorkingDirectory = $script:WefRoot
+    $ownedShortcut.Description = Get-WefStartupShortcutDescription
+    $ownedShortcut.Save()
+    [Runtime.InteropServices.Marshal]::FinalReleaseComObject($ownedShortcut) | Out-Null
+    $ownedShortcut = $null
+    [Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell) | Out-Null
+    $shell = $null
+    Assert-WefStartupShortcutAvailable $ownedShortcutPath
+    if (-not (Remove-WefOwnedStartupShortcut $ownedShortcutPath) -or (Test-Path -LiteralPath $ownedShortcutPath)) {
+      throw "An owned shortcut was not removed."
+    }
+    Write-Host "Installation data-root and Windows shortcut ownership safety passed."
+  } else {
+    Write-Host "Installation data-root safety passed; Windows shortcut ownership fixture skipped on $([System.Runtime.InteropServices.RuntimeInformation]::OSDescription)."
   }
-
-  Write-Host "Installation data-root and shortcut ownership safety passed."
 } finally {
   $resolvedTestRoot = (Resolve-Path -LiteralPath $testRoot).Path
   $expectedPrefix = Join-Path $script:WefRoot ".runtime-data\installation-safety-"

@@ -25,16 +25,17 @@ const server = spawn(python, [join(root, "spikes", "synthetic_server.py")], {
   windowsHide: true,
   stdio: ["ignore", "pipe", "pipe"]
 });
+let serverStdout = "";
+let serverStderr = "";
+server.stdout.on("data", (chunk) => { serverStdout += chunk.toString(); });
+server.stderr.on("data", (chunk) => { serverStderr += chunk.toString(); });
 
 async function waitForHealth() {
   for (let attempt = 0; attempt < 240; attempt += 1) {
     if (server.exitCode !== null) {
-      const stderr = await new Promise((resolvePromise) => {
-        let output = "";
-        server.stderr.on("data", (chunk) => { output += chunk.toString(); });
-        setTimeout(() => resolvePromise(output), 50);
-      });
-      throw new Error(`Synthetic service exited before health: ${stderr}`);
+      throw new Error(
+        `Synthetic service exited before health (code ${server.exitCode}). stderr: ${serverStderr} stdout: ${serverStdout}`
+      );
     }
     try {
       const response = await fetch(`http://127.0.0.1:${port}/health`);

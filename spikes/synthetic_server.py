@@ -123,6 +123,20 @@ def blueprint_payload(
     return BlueprintCreate.model_validate(payload)
 
 
+def mark_synthetic_attempt(services: Services, run, status: RunStatus = RunStatus.COMPLETED):
+    run.agent_attempted = True
+    run.status = status
+    run.codex_events.append(
+        {
+            "type": "gate.synthetic_attempt",
+            "source": "fully-synthetic-ui-fixture",
+            "model_executed": False,
+        }
+    )
+    services.store.save_run(run)
+    return run
+
+
 def make_correct(workspace: Path) -> None:
     target = workspace / "app.py"
     target.write_text(
@@ -151,6 +165,7 @@ def seed(services: Services, data_dir: Path) -> None:
     issue_cases = services.factory.generate_cases(issue_blueprint.blueprint_id)
 
     failed = services.factory.prepare_run(code_cases[0].case_id)
+    mark_synthetic_attempt(services, failed)
     services.scorer.score(failed.run_id)
 
     passing = services.factory.prepare_run(issue_cases[1].case_id)
@@ -166,10 +181,11 @@ def seed(services: Services, data_dir: Path) -> None:
         linked_issue_key=issue_key,
     )
     services.simulator.update_issue_status(Path(passing.simulator_database_path), issue_key, "in_review")
+    mark_synthetic_attempt(services, passing)
     services.scorer.score(passing.run_id)
 
     interrupted = services.factory.prepare_run(code_cases[2].case_id)
-    interrupted.status = RunStatus.AGENT_TIMEOUT
+    mark_synthetic_attempt(services, interrupted, RunStatus.AGENT_TIMEOUT)
     interrupted.error = "Synthetic Codex attempt reached its Case timeout."
     interrupted.completed_at = utc_now()
     services.store.save_run(interrupted)
