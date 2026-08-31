@@ -215,7 +215,8 @@ createServer((_request, response) => {
   Assert-Acceptance (-not (Test-WefMarketplacePresent (Invoke-CodexText @("plugin", "marketplace", "list")) $marketplace)) "final uninstall left the marketplace registered"
   & (Join-Path $PSScriptRoot "Inspect-Installation.ps1") -RequireAbsent -RequireNoData -Port $Port -DataDir $acceptanceData | Out-Null
 
-  $dockerVersion = (& $dockerCommandPath version --format '{{.Server.Version}}|{{.Server.Os}}|{{.Server.Arch}}' 2>&1 | Out-String).Trim()
+  $dockerFormat = if ($UseDockerStub) { '{{.Server.Version}}' } else { '{{.Server.Version}}|{{.Server.Os}}|{{.Server.Arch}}' }
+  $dockerVersion = (& $dockerCommandPath version --format $dockerFormat 2>&1 | Out-String).Trim()
   if ($LASTEXITCODE -ne 0) { throw "Docker became unavailable after installation acceptance: $dockerVersion" }
   $sourceEvidence = Get-AcceptanceSourceEvidence
   $evidence = [ordered]@{
