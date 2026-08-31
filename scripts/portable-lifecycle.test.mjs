@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   assertDataRoot,
   assertSafeDataPath,
+  commandOwnsServer,
   initializeDataRoot,
   marketplaceListingContains,
   parseArguments,
@@ -34,6 +35,15 @@ test("Codex aligned plugin and marketplace tables are parsed exactly", () => {
     marketplaceListingContains("MARKETPLACE ROOT\nworkflow-environment-factory  /tmp/source", "workflow-environment-factory"),
     true
   );
+});
+
+test("portable ownership accepts the macOS-resolved Python executable only with the module marker", () => {
+  const linkedPython = "/tmp/factory/.venv/bin/python";
+  const realPython = "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13";
+  const marker = "workflow_environment_factory.cli";
+  assert.equal(commandOwnsServer(`${realPython} -m ${marker} serve`, linkedPython, realPython, marker), true);
+  assert.equal(commandOwnsServer(`${realPython} -m another.module serve`, linkedPython, realPython, marker), false);
+  assert.equal(commandOwnsServer(`/tmp/foreign/python -m ${marker} serve`, linkedPython, realPython, marker), false);
 });
 
 test("portable data deletion requires the exact Factory marker", () => {

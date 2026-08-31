@@ -7,6 +7,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync
 } from "node:fs";
@@ -282,9 +283,18 @@ function processCommand(pid) {
 function assertOwnedProcess(record) {
   const command = processCommand(record.pid);
   const server = resolve(record.server_path);
-  if (!command || !command.includes(server) || !command.includes(record.command_marker)) {
+  const realServer = realpathSync(server);
+  if (!commandOwnsServer(command, server, realServer, record.command_marker)) {
     fail(`Refusing to signal PID ${record.pid}; its command does not match the owned Factory server.`);
   }
+}
+
+function commandOwnsServer(command, server, realServer, commandMarker) {
+  return Boolean(
+    command &&
+    (command.includes(server) || command.includes(realServer)) &&
+    command.includes(`-m ${commandMarker}`)
+  );
 }
 
 async function health(port) {
@@ -600,6 +610,7 @@ async function main() {
 export {
   assertDataRoot,
   assertSafeDataPath,
+  commandOwnsServer,
   initializeDataRoot,
   marketplaceListingContains,
   parseArguments,
