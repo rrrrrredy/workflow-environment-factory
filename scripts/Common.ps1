@@ -77,6 +77,53 @@ function Test-WefPluginInstalled([string]$Listing, [string]$Selector) {
   return $Listing -match "(?im)^\s*$escaped\s+installed(?:,|\s|$)"
 }
 
+function Get-WefStartupShortcutPath {
+  $startupDirectory = [Environment]::GetFolderPath("Startup")
+  if ([string]::IsNullOrWhiteSpace($startupDirectory)) {
+    throw "Windows Startup directory could not be resolved."
+  }
+  return Join-Path $startupDirectory "Workflow Environment Factory.lnk"
+}
+
+function Get-WefStartupShortcutDescription {
+  return "Workflow Environment Factory startup [owner:workflow-environment-factory]"
+}
+
+function Test-WefOwnedStartupShortcut([string]$ShortcutPath) {
+  if (-not (Test-Path -LiteralPath $ShortcutPath -PathType Leaf)) { return $false }
+  try {
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($ShortcutPath)
+    $expectedScript = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "Start.ps1"))
+    $expectedWorkingDirectory = [System.IO.Path]::GetFullPath($script:WefRoot).TrimEnd('\')
+    $actualWorkingDirectory = [System.IO.Path]::GetFullPath([string]$shortcut.WorkingDirectory).TrimEnd('\')
+    $targetName = [System.IO.Path]::GetFileName([string]$shortcut.TargetPath).ToLowerInvariant()
+    $scriptArgument = '-File "' + $expectedScript + '"'
+    return (
+      ([string]$shortcut.Description -ceq (Get-WefStartupShortcutDescription)) -and
+      ($targetName -in @("pwsh.exe", "powershell.exe")) -and
+      ($actualWorkingDirectory -ceq $expectedWorkingDirectory) -and
+      ([string]$shortcut.Arguments).IndexOf($scriptArgument, [StringComparison]::OrdinalIgnoreCase) -ge 0
+    )
+  } catch {
+    return $false
+  }
+}
+
+function Assert-WefStartupShortcutAvailable([string]$ShortcutPath) {
+  if ((Test-Path -LiteralPath $ShortcutPath -PathType Leaf) -and -not (Test-WefOwnedStartupShortcut $ShortcutPath)) {
+    throw "The Startup shortcut name is already used by another application. It was not overwritten: $ShortcutPath"
+  }
+}
+
+function Remove-WefOwnedStartupShortcut([string]$ShortcutPath) {
+  if (Test-WefOwnedStartupShortcut $ShortcutPath) {
+    Remove-Item -LiteralPath $ShortcutPath -Force
+    return $true
+  }
+  return $false
+}
+
 function Get-WefVenvPython {
   $runningOnWindows = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
     [System.Runtime.InteropServices.OSPlatform]::Windows
@@ -174,7 +221,7 @@ function Remove-WefDataRootCreatedByFailedInstall([string]$DataDir) {
 }
 
 function Get-WefProtocolDir {
-  return Join-Path $script:WefRoot ".runtime-deps\runcase-interchange\0.1.0\schemas"
+  return Join-Path $script:WefRoot ".runtime-deps\runcase-interchange\0.1.1\schemas"
 }
 
 function Get-WefHealth([int]$Port) {

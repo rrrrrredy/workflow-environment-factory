@@ -52,6 +52,10 @@ class FactoryStore:
                 payload_json TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS score_heads (
+                run_id TEXT PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
+                score_id TEXT NOT NULL UNIQUE REFERENCES scores(id) ON DELETE RESTRICT
+            );
             CREATE TABLE IF NOT EXISTS recordings (
                 id TEXT PRIMARY KEY,
                 payload_json TEXT NOT NULL,
@@ -67,6 +71,19 @@ class FactoryStore:
             );
             """
         )
+        historical_runs = self.connection.execute(
+            "SELECT DISTINCT run_id FROM scores ORDER BY run_id"
+        ).fetchall()
+        for historical in historical_runs:
+            score = self.connection.execute(
+                "SELECT id FROM scores WHERE run_id = ? ORDER BY created_at ASC, id ASC LIMIT 1",
+                (historical["run_id"],),
+            ).fetchone()
+            if score is not None:
+                self.connection.execute(
+                    "INSERT OR IGNORE INTO score_heads(run_id, score_id) VALUES (?, ?)",
+                    (historical["run_id"], score["id"]),
+                )
         self.connection.commit()
 
     def close(self) -> None:
@@ -152,15 +169,26 @@ class FactoryStore:
         return [RunRecord.model_validate_json(row["payload_json"]) for row in rows]
 
     def save_score(self, score: dict[str, Any]) -> dict[str, Any]:
-        self.connection.execute(
-            "INSERT OR REPLACE INTO scores(id, run_id, payload_json, created_at) VALUES (?, ?, ?, ?)",
-            (score["score_id"], score["run_id"], self._json(score), score["created_at"]),
-        )
-        self.connection.commit()
+        existing = self.get_score_for_run(score["run_id"])
+        if existing is not None:
+            return existing
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO scores(id, run_id, payload_json, created_at) VALUES (?, ?, ?, ?)",
+                (score["score_id"], score["run_id"], self._json(score), score["created_at"]),
+            )
+            self.connection.execute(
+                "INSERT INTO score_heads(run_id, score_id) VALUES (?, ?)",
+                (score["run_id"], score["score_id"]),
+            )
         return score
 
     def get_score_for_run(self, run_id: UUID | str) -> dict[str, Any] | None:
-        row = self.connection.execute("SELECT payload_json FROM scores WHERE run_id = ?", (str(run_id),)).fetchone()
+        row = self.connection.execute(
+            "SELECT scores.payload_json FROM score_heads "
+            "JOIN scores ON scores.id = score_heads.score_id WHERE score_heads.run_id = ?",
+            (str(run_id),),
+        ).fetchone()
         return None if row is None else json.loads(row["payload_json"])
 
     def save_recording(self, recording: RecordingRecord) -> RecordingRecord:

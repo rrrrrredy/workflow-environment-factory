@@ -48,9 +48,9 @@ The verifier uses an immutable `image@sha256` reference and starts Docker with:
 - `--pids-limit 128`;
 - a read-only container filesystem;
 - a `noexec,nosuid` temporary filesystem;
-- only the fresh Agent working directory mounted at `/workspace`; its external Git object database is not mounted.
+- only the fresh Agent working directory mounted read-only at `/workspace`; its external Git object database is not mounted.
 
-The mounted workspace is writable because objective tests often produce files. The host Docker daemon remains a privileged dependency; a malicious image or daemon compromise is outside this application's security boundary. Review image provenance and verifier commands.
+The verifier cannot write the mounted Agent workspace. Temporary files belong in the container's bounded `/tmp`; verifiers that require repository writes are rejected in 0.1. The scorer fingerprints the workspace before and after verification and records a validator error instead of a task score if it changes. The host Docker daemon remains a privileged dependency; a malicious image or daemon compromise is outside this application's security boundary. Review image provenance and verifier commands.
 
 ## Codex boundary
 

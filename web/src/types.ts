@@ -147,6 +147,7 @@ export interface RunRecord {
   status: RunStatus;
   workspace_path: string;
   simulator_database_path: string | null;
+  agent_attempted: boolean;
   codex_events: Array<Record<string, unknown>>;
   error: string;
   started_at: string;

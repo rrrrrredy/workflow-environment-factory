@@ -215,6 +215,8 @@ class CodexRunner:
                 shell=False,
                 creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
             )
+            run.agent_attempted = True
+            self.store.save_run(run)
             stdout, stderr = process.communicate(timeout=blueprint.payload.timeout_ms / 1_000)
             for line in stdout.splitlines():
                 if not line.strip():

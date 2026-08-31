@@ -16,9 +16,10 @@ try { & (Join-Path $PSScriptRoot "Stop.ps1") -Port $Port -DataDir $resolvedDataD
 $startupDirectory = [Environment]::GetFolderPath("Startup")
 if (-not [string]::IsNullOrWhiteSpace($startupDirectory)) {
   $shortcutPath = Join-Path $startupDirectory "Workflow Environment Factory.lnk"
-  if (Test-Path -LiteralPath $shortcutPath -PathType Leaf) {
-    Remove-Item -LiteralPath $shortcutPath -Force
+  if (Remove-WefOwnedStartupShortcut $shortcutPath) {
     Write-Host "Removed current-user startup shortcut."
+  } elseif (Test-Path -LiteralPath $shortcutPath -PathType Leaf) {
+    Write-Warning "Preserved a same-name Startup shortcut because it is not owned by Workflow Environment Factory: $shortcutPath"
   }
 }
 

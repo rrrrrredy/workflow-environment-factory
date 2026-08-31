@@ -4,7 +4,7 @@ A source build is not a release. The 0.1.0 `v*` tag produces only a GitHub prere
 
 ## Fixed inputs
 
-- RunCase Interchange: tag `v0.1.0`.
+- RunCase Interchange: commit `f4949e9e65cb7948a03e1d8bfe19dc915db31fd2` from tag `v0.1.1`, with per-schema SHA-256 verification.
 - Node.js: 22.23.2 in CI and release jobs.
 - Python: 3.13.13 for Windows product/archive jobs; 3.11.16 for Ubuntu build jobs and the Docker gate image.
 - Codex CLI used by `doctor`: `0.150.0-alpha.8`.
@@ -14,7 +14,7 @@ The image is the Docker Official Image manifest digest returned by Docker Hub fo
 
 ## CI gates
 
-1. Windows builds the React product, installs the locked Python environment, runs all local golden tests, and validates the plugin.
+1. Windows builds the React product, installs exact Python version constraints, runs all local golden tests, and validates the plugin. These constraints do not hash-lock wheel or sdist artifacts.
 2. Windows also runs one asserted browser golden scenario covering recording, three Cases, task-pack export, timeout/not-scored separation, protocol import, and mobile overflow.
 3. Ubuntu runs the same checks with Docker available.
 4. The Docker gate creates a fresh synthetic repository and confirmed Issue-to-PR demonstration; it is explicitly an environment/verifier gate, not an Agent execution claim.

@@ -62,7 +62,7 @@ Set-Location workflow-environment-factory-0.1.0
 .\scripts\Install.ps1 -Open
 ```
 
-The same release contains a commit/protocol/Docker-bound manifest and GitHub build-provenance attestation. The installer creates a project-local Python virtual environment, installs the locked frontend and backend dependencies, runs focused checks, confirms Docker and Codex, registers this checkout as a Codex marketplace, installs the plugin, and starts a loopback-only service. Restart Codex after installation.
+The same release contains a commit/protocol/Docker-bound manifest and GitHub build-provenance attestation. The installer creates a project-local Python virtual environment, installs the npm lockfile plus exact Python version constraints, runs focused checks, confirms Docker and Codex, registers this checkout as a Codex marketplace, installs the plugin, and starts a loopback-only service. The Python constraints are not a wheel/sdist hash lock. Restart Codex after installation.
 
 To run from source before a packaged protocol dependency exists:
 
@@ -96,7 +96,7 @@ See [installation and removal](docs/installation.md) for every state change and 
 - The service only accepts `127.0.0.1` and refuses another bind address.
 - A random local token protects every API route; the browser receives an HttpOnly, SameSite=Strict cookie.
 - Structured Codex events are redacted before storage. Secret-like fields, bearer tokens, API keys, GitHub tokens, private keys, and oversized content are handled explicitly.
-- Docker verifiers run with network disabled, CPU/memory/process limits, a read-only container filesystem, and only the fresh workspace mounted.
+- Docker verifiers run with network disabled, CPU/memory/process limits, a read-only container filesystem, and the fresh workspace mounted read-only. A post-verifier fingerprint rejects any unexpected workspace mutation before scoring.
 - The Issue/PR simulator is local SQLite. It never calls GitHub, Linear, or a production account.
 - Repository paths and diagnostic content stay on the machine. Protocol exports are explicit user actions.
 - The solution revision is used to prove the Case during generation. Agent-facing MCP responses omit its commit and patch digest, and the Run's shallow object database contains only the baseline lineage needed for that snapshot.
@@ -141,7 +141,7 @@ $env:WEF_PYTHON = 'C:\path\to\python.exe'
 .\scripts\Check.ps1 -InstallDependencies
 ```
 
-The regular check performs a strict React production build, locked Python dependency check, static analysis, the two focused golden scenarios, and plugin/MCP validation. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Version 0.1.0 packaging records that the authenticated code and Issue-to-PR Agent gate was not run; that optional gate and clean-machine acceptance remain mandatory before any stable label.
+The regular check performs a strict React production build, exact Python version-constraint check, static analysis, the two focused golden scenarios, and plugin/MCP validation. The Python file is not an artifact-hash lock. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Version 0.1.0 packaging records that the authenticated code and Issue-to-PR Agent gate was not run; that optional gate and ordinary user-owned Windows 11 acceptance remain mandatory before any stable label.
 
 Current evidence and remaining gates are listed in [acceptance](docs/acceptance.md). The tag-to-release gates and fixed Docker input are documented in [release process](docs/release-process.md). Contributions are welcome under [CONTRIBUTING.md](CONTRIBUTING.md); security reports follow [SECURITY.md](SECURITY.md).
 

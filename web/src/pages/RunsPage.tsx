@@ -315,7 +315,7 @@ export function RunsPage({ cases, runs, onChanged, onError }: Props) {
                       <Bot size={16} /> Execute with Codex
                     </Button>
                   ) : null}
-                  {detail.run.status === "ready" || (detail.run.status === "completed" && !detail.score) ? (
+                  {detail.run.status === "completed" && detail.run.agent_attempted && !detail.score ? (
                     <Button
                       tone="secondary"
                       busy={busy === "score"}
@@ -325,7 +325,7 @@ export function RunsPage({ cases, runs, onChanged, onError }: Props) {
                         })
                       }
                     >
-                      <Sparkles size={16} /> Score current state
+                      <Sparkles size={16} /> Validate completed attempt
                     </Button>
                   ) : null}
                   {!activeStatuses.has(detail.run.status) ? (

@@ -1,25 +1,35 @@
 param(
   [string]$ProtocolRoot = "",
-  [string]$ReleaseUrl = "https://github.com/rrrrrredy/runcase-interchange/releases/download/v0.1.0/runcase-interchange-schemas-0.1.0.zip",
+  [string]$ReleaseUrl = "https://github.com/rrrrrredy/runcase-interchange/releases/download/v0.1.1/runcase-interchange-schemas-0.1.1.zip",
   [string]$ExpectedSha256 = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
-$destination = Join-Path $repositoryRoot ".runtime-deps\runcase-interchange\0.1.0\schemas"
+$destination = Join-Path $repositoryRoot ".runtime-deps\runcase-interchange\0.1.1\schemas"
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 $schemaNames = @(
   "agent.run.v1.schema.json",
   "workflow.case.v1.schema.json",
   "workflow.score.v1.schema.json"
 )
+$protocolCommit = "f4949e9e65cb7948a03e1d8bfe19dc915db31fd2"
+$expectedSchemaSha256 = @{
+  "agent.run.v1.schema.json" = "4ece323040ae5b1caa8f15ef833ad21430e27f03f111c0ed3aea8cb820777df4"
+  "workflow.case.v1.schema.json" = "c99988eefd2654016c8f5b4783e98cd043cb1aff27dc564ebd97ca5bd03197ce"
+  "workflow.score.v1.schema.json" = "a8fb3c43870c4c0e8a8358208bdc5d28d8fab35ebf72400a3109625127da7a36"
+}
 
 function Copy-Schemas([string]$SourceDirectory) {
   $resolvedSource = [System.IO.Path]::GetFullPath($SourceDirectory)
   foreach ($name in $schemaNames) {
     $sourcePath = Join-Path $resolvedSource $name
     if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { throw "Protocol schema missing: $sourcePath" }
+    $actualHash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualHash -cne $expectedSchemaSha256[$name]) {
+      throw "Protocol schema $name does not match RunCase Interchange v0.1.1 commit $protocolCommit. Expected $($expectedSchemaSha256[$name]), got $actualHash."
+    }
     Copy-Item -LiteralPath $sourcePath -Destination (Join-Path $destination $name) -Force
   }
 }
@@ -57,4 +67,4 @@ if (-not [string]::IsNullOrWhiteSpace($ProtocolRoot)) {
   }
 }
 
-Write-Host "RunCase Interchange 0.1.0 schemas synced to $destination"
+Write-Host "RunCase Interchange 0.1.1 schemas from commit $protocolCommit synced to $destination"

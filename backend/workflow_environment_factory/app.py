@@ -262,7 +262,9 @@ def create_app(services: Services) -> FastAPI:
             sanitized = redact(body.document)
             services.protocol.validate(sanitized)
         except (ValueError, TypeError) as error:
-            raise HTTPException(422, str(error)) from error
+            schema_version = body.document.get("schema_version")
+            label = schema_version if isinstance(schema_version, str) else "a RunCase Interchange schema"
+            raise HTTPException(422, f"The file does not conform to {label}.\n{error}") from error
         schema_version = sanitized["schema_version"]
         id_fields = {
             "agent.run.v1": "run_id",

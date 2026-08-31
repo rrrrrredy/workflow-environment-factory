@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from workflow_environment_factory.config import Settings
 from workflow_environment_factory.engine import LocalTestEngine
+from workflow_environment_factory.models import RunStatus
 from workflow_environment_factory.services import Services
 
 
@@ -88,7 +89,7 @@ def services(tmp_path: Path) -> Services:
         worktrees_dir=data_dir / "worktrees",
         simulator_dir=data_dir / "simulators",
         token_path=data_dir / "session-token",
-        protocol_schema_dir=repository_root / ".runtime-deps" / "runcase-interchange" / "0.1.0" / "schemas",
+        protocol_schema_dir=repository_root / ".runtime-deps" / "runcase-interchange" / "0.1.1" / "schemas",
         codex_executable="codex",
         docker_executable="missing-docker-for-tests",
         web_root=tmp_path / "missing-web",
@@ -107,3 +108,11 @@ def make_code_correct(workspace: Path) -> None:
     source = target.read_text(encoding="utf-8")
     assert "return value.strip()" in source
     target.write_text(source.replace("return value.strip()", "return value.strip().lower()"), encoding="utf-8")
+
+
+def mark_synthetic_agent_attempt(services: Services, run):
+    """Test-only stand-in for a Codex process that started and exited successfully."""
+    run.status = RunStatus.COMPLETED
+    run.agent_attempted = True
+    services.store.save_run(run)
+    return run

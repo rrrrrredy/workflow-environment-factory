@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from conftest import RepositoryFixture, make_code_correct
+from conftest import RepositoryFixture, make_code_correct, mark_synthetic_agent_attempt
 from fastapi.testclient import TestClient
 from workflow_environment_factory.app import create_app
 from workflow_environment_factory.models import BlueprintCreate, RecordingEvent
@@ -81,6 +81,7 @@ def test_recorded_issue_pr_case_requires_code_and_database_state(services, repos
 
     wrong_run = services.factory.prepare_run(cases[0].case_id)
     make_code_correct(Path(wrong_run.workspace_path))
+    mark_synthetic_agent_attempt(services, wrong_run)
     wrong_score = services.scorer.score(wrong_run.run_id)
     assert wrong_score["task_result"]["status"] == "fail"
     issue_validation = next(row for row in wrong_score["validations"] if row["validator_id"] == "issue-pr-state")
@@ -103,6 +104,7 @@ def test_recorded_issue_pr_case_requires_code_and_database_state(services, repos
         linked_issue_key=issue_key,
     )
     services.simulator.update_issue_status(database, issue_key, "in_review")
+    mark_synthetic_agent_attempt(services, correct_run)
     correct_score = services.scorer.score(correct_run.run_id)
     assert correct_score["task_result"]["status"] == "pass"
     assert (

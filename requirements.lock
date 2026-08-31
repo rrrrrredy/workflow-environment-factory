@@ -1,3 +1,5 @@
+# Exact Python version constraints for reproducibility; this is not an artifact-hash lock.
+# PyPI packages are therefore re-fetched and are not verified with pip --require-hashes.
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.14.2

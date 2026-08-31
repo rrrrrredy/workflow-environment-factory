@@ -52,6 +52,12 @@ $pluginRemovedForRepair = $false
 $dataRootExisted = Test-Path -LiteralPath $resolvedDataDir
 $dataRootCreated = $false
 
+if ($EnableStartup) {
+  $shortcutPath = Get-WefStartupShortcutPath
+  $shortcutWasPresent = Test-Path -LiteralPath $shortcutPath -PathType Leaf
+  Assert-WefStartupShortcutAvailable $shortcutPath
+}
+
 try {
   Initialize-WefDataRoot $resolvedDataDir
   $dataRootCreated = -not $dataRootExisted
@@ -86,10 +92,6 @@ try {
   }
 
   if ($EnableStartup) {
-    $startupDirectory = [Environment]::GetFolderPath("Startup")
-    if ([string]::IsNullOrWhiteSpace($startupDirectory)) { throw "Windows Startup directory could not be resolved." }
-    $shortcutPath = Join-Path $startupDirectory "Workflow Environment Factory.lnk"
-    $shortcutWasPresent = Test-Path -LiteralPath $shortcutPath -PathType Leaf
     $shortcutCreated = -not $shortcutWasPresent
     if ($shortcutWasPresent) {
       $shortcutBackupPath = Join-Path ([System.IO.Path]::GetTempPath()) "wef-startup-$([Guid]::NewGuid().ToString('N')).lnk"
@@ -103,7 +105,7 @@ try {
     $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $PSScriptRoot 'Start.ps1')`" -Port $Port -DataDir `"$resolvedDataDir`""
     $shortcut.WorkingDirectory = $script:WefRoot
     $shortcut.WindowStyle = 7
-    $shortcut.Description = "Start Workflow Environment Factory locally at sign-in"
+    $shortcut.Description = Get-WefStartupShortcutDescription
     $shortcut.Save()
     Write-Host "Enabled current-user startup: $shortcutPath"
   }

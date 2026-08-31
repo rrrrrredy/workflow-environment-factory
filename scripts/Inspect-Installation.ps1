@@ -32,12 +32,17 @@ if ($null -eq $codexCommand) {
 }
 
 $startupDirectory = [Environment]::GetFolderPath("Startup")
-$startupPresent = if ([string]::IsNullOrWhiteSpace($startupDirectory)) {
+$startupShortcutPath = if ([string]::IsNullOrWhiteSpace($startupDirectory)) { $null } else {
+  Join-Path $startupDirectory "Workflow Environment Factory.lnk"
+}
+$startupPresent = if ($null -eq $startupShortcutPath) {
   $inspectionErrors.Add("Windows Startup directory could not be resolved.")
   $false
 } else {
-  Test-Path -LiteralPath (Join-Path $startupDirectory "Workflow Environment Factory.lnk") -PathType Leaf
+  Test-WefOwnedStartupShortcut $startupShortcutPath
 }
+$startupNameCollision = $null -ne $startupShortcutPath -and
+  (Test-Path -LiteralPath $startupShortcutPath -PathType Leaf) -and -not $startupPresent
 $health = Get-WefHealth $Port
 $serviceReachable = $null -ne $health -and $health.product -eq "workflow-environment-factory"
 $pidFilePresent = Test-Path -LiteralPath (Join-Path $resolvedDataDir "service.pid") -PathType Leaf
@@ -55,6 +60,7 @@ $state = [ordered]@{
     service_reachable = $serviceReachable
     pid_file_present = $pidFilePresent
     startup_shortcut_present = $startupPresent
+    startup_shortcut_foreign_name_collision = $startupNameCollision
     plugin_installed = $pluginInstalled
     marketplace_registered = $marketplaceRegistered
   }

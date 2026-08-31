@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from conftest import RepositoryFixture, make_code_correct
+from conftest import RepositoryFixture, make_code_correct, mark_synthetic_agent_attempt
+from workflow_environment_factory.engine import ProcessResult
 from workflow_environment_factory.models import BlueprintCreate, RunStatus
 
 
@@ -58,6 +59,7 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
     services.factory.cleanup_run(second_reset.run_id)
 
     failed_run = services.factory.prepare_run(cases[0].case_id)
+    mark_synthetic_agent_attempt(services, failed_run)
     failed_score = services.scorer.score(failed_run.run_id)
     assert failed_score["task_result"]["status"] == "fail"
     services.factory.cleanup_run(failed_run.run_id)
@@ -78,6 +80,7 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
     assert services.git.changed_paths(passing_workspace, "HEAD") == ["outside-allowed-path.txt"]
     unexpected.unlink()
     make_code_correct(passing_workspace)
+    mark_synthetic_agent_attempt(services, passing_run)
     passing_score = services.scorer.score(passing_run.run_id)
     assert passing_score["task_result"] == {
         "status": "pass",
@@ -90,6 +93,7 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
 
     crashed_run = services.factory.prepare_run(cases[0].case_id)
     crashed_run.status = RunStatus.AGENT_CRASH
+    crashed_run.agent_attempted = True
     crashed_run.error = "Codex exited before validation with " + "Bear" + "er synthetic-secret-12345678"
     services.store.save_run(crashed_run)
     crashed_score = services.scorer.score(crashed_run.run_id)
@@ -102,6 +106,39 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
     services.store.save_run(services.store.get_run(crashed_run.run_id))
     assert services.store.get_score_for_run(crashed_run.run_id)["score_id"] == crashed_score["score_id"]
     services.factory.cleanup_run(crashed_run.run_id)
+
+    unstarted_run = services.factory.prepare_run(cases[0].case_id)
+    try:
+        services.scorer.score(unstarted_run.run_id)
+        raise AssertionError("READY state was incorrectly accepted as a Codex score")
+    except ValueError as error:
+        assert "cannot be scored" in str(error)
+    services.factory.cleanup_run(unstarted_run.run_id)
+
+    class MutatingVerifier:
+        name = "mutating-test-verifier"
+
+        def run(self, workspace: Path, image: str, argv: list[str], timeout_ms: int) -> ProcessResult:
+            del image, argv, timeout_ms
+            (workspace / "verifier-created.txt").write_text("unexpected", encoding="utf-8")
+            return ProcessResult("pass", 0, "", "", 1)
+
+    mutated_run = services.factory.prepare_run(cases[0].case_id)
+    mark_synthetic_agent_attempt(services, mutated_run)
+    original_engine = services.scorer.engine
+    services.scorer.engine = MutatingVerifier()
+    try:
+        mutated_score = services.scorer.score(mutated_run.run_id)
+    finally:
+        services.scorer.engine = original_engine
+    assert mutated_score["execution"]["status"] == "validator_error"
+    assert mutated_score["task_result"]["status"] == "not_scored"
+    integrity = next(
+        row for row in mutated_score["validations"] if row["validator_id"] == "verifier-workspace-integrity"
+    )
+    assert integrity["status"] == "error"
+    assert services.scorer.score(mutated_run.run_id)["score_id"] == mutated_score["score_id"]
+    services.factory.cleanup_run(mutated_run.run_id)
 
 
 def test_codex_preflight_failure_is_environment_error_without_model_score(services, repository_fixture) -> None:

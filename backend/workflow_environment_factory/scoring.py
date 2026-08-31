@@ -4,7 +4,7 @@ import fnmatch
 import hashlib
 import json
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -50,11 +50,16 @@ class ScoreService:
         self.simulator = simulator or IssuePrSimulator()
 
     def score(self, run_id: UUID | str) -> dict[str, Any]:
+        existing = self.store.get_score_for_run(run_id)
+        if existing is not None:
+            return existing
         run = self.store.get_run(run_id)
         if run is None:
             raise KeyError("run not found")
-        if run.status not in {RunStatus.READY, RunStatus.COMPLETED, RunStatus.AGENT_CRASH, RunStatus.AGENT_TIMEOUT}:
+        if run.status not in {RunStatus.COMPLETED, RunStatus.AGENT_CRASH, RunStatus.AGENT_TIMEOUT}:
             raise ValueError(f"run cannot be scored from status {run.status}")
+        if not run.agent_attempted:
+            raise ValueError("run has no retained evidence that the Codex runner started an attempt")
         case = self.store.get_case(run.case_id)
         if case is None:
             raise KeyError("case not found")
@@ -114,42 +119,27 @@ class ScoreService:
         execution_status = "completed"
         failure_stage: str | None = None
 
+        pre_verifier_state: dict[str, str] | None = None
         try:
-            changed_paths = self.git.changed_paths(workspace, "HEAD")
-            paths_pass = bool(changed_paths) and all(
-                _path_allowed(path, blueprint.payload.allowed_paths) for path in changed_paths
-            )
-            validation_rows.append(
-                {
-                    "validator_id": "allowed-paths",
-                    "status": "pass" if paths_pass else "fail",
-                    "objective": True,
-                    "required": True,
-                    "duration_ms": 0,
-                    "summary": "All changed paths are in the confirmed scope."
-                    if paths_pass
-                    else "No change or at least one changed path is outside the confirmed scope.",
-                    "evidence": [
-                        {
-                            "kind": "structured",
-                            "summary": f"{len(changed_paths)} changed path(s)",
-                            "data": {"changed_paths": changed_paths, "allowed": blueprint.payload.allowed_paths},
-                        }
-                    ],
-                }
-            )
+            pre_verifier_state = self._workspace_state(workspace)
         except Exception as error:
             execution_status = "validator_error"
             failure_stage = "validating"
             validation_rows.append(
                 {
-                    "validator_id": "allowed-paths",
+                    "validator_id": "verifier-workspace-integrity",
                     "status": "error",
-                    "objective": True,
+                    "objective": False,
                     "required": True,
                     "duration_ms": 0,
                     "summary": str(redact(str(error))),
-                    "evidence": [{"kind": "text", "summary": "Git changed-path validation failed.", "redacted": True}],
+                    "evidence": [
+                        {
+                            "kind": "text",
+                            "summary": "Pre-verifier workspace snapshot failed.",
+                            "redacted": True,
+                        }
+                    ],
                 }
             )
 
@@ -163,6 +153,80 @@ class ScoreService:
             execution_status = "validator_error"
             failure_stage = "validating"
         validation_rows.append(self._command_validation(verifier))
+
+        if pre_verifier_state is not None:
+            try:
+                post_verifier_state = self._workspace_state(workspace)
+                integrity_passed = post_verifier_state == pre_verifier_state
+                if not integrity_passed:
+                    execution_status = "validator_error"
+                    failure_stage = "validating"
+                validation_rows.append(
+                    {
+                        "validator_id": "verifier-workspace-integrity",
+                        "status": "pass" if integrity_passed else "error",
+                        "objective": False,
+                        "required": True,
+                        "duration_ms": 0,
+                        "summary": "The verifier left the Agent workspace unchanged."
+                        if integrity_passed
+                        else "The verifier changed the Agent workspace; the task result is not scored.",
+                        "evidence": [
+                            {
+                                "kind": "structured",
+                                "summary": "Workspace state before and after verifier execution",
+                                "data": {
+                                    "before_paths": sorted(pre_verifier_state),
+                                    "after_paths": sorted(post_verifier_state),
+                                    "state_equal": integrity_passed,
+                                },
+                            }
+                        ],
+                    }
+                )
+                changed_paths = sorted(post_verifier_state)
+                paths_pass = bool(changed_paths) and all(
+                    _path_allowed(path, blueprint.payload.allowed_paths) for path in changed_paths
+                )
+                validation_rows.append(
+                    {
+                        "validator_id": "allowed-paths",
+                        "status": "pass" if paths_pass else "fail",
+                        "objective": True,
+                        "required": True,
+                        "duration_ms": 0,
+                        "summary": "All changed paths are in the confirmed scope."
+                        if paths_pass
+                        else "No change or at least one changed path is outside the confirmed scope.",
+                        "evidence": [
+                            {
+                                "kind": "structured",
+                                "summary": f"{len(changed_paths)} changed path(s) after verifier execution",
+                                "data": {"changed_paths": changed_paths, "allowed": blueprint.payload.allowed_paths},
+                            }
+                        ],
+                    }
+                )
+            except Exception as error:
+                execution_status = "validator_error"
+                failure_stage = "validating"
+                validation_rows.append(
+                    {
+                        "validator_id": "verifier-workspace-integrity",
+                        "status": "error",
+                        "objective": False,
+                        "required": True,
+                        "duration_ms": 0,
+                        "summary": str(redact(str(error))),
+                        "evidence": [
+                            {
+                                "kind": "text",
+                                "summary": "Post-verifier workspace snapshot failed.",
+                                "redacted": True,
+                            }
+                        ],
+                    }
+                )
 
         if blueprint.payload.kind == BlueprintKind.ISSUE_PR:
             assert blueprint.payload.issue is not None
@@ -281,6 +345,29 @@ class ScoreService:
                 }
             ],
         }
+
+    def _workspace_state(self, workspace: Path) -> dict[str, str]:
+        root = workspace.resolve()
+        state: dict[str, str] = {}
+        for relative in self.git.changed_paths(root, "HEAD"):
+            normalized = relative.replace("\\", "/")
+            path = PurePosixPath(normalized)
+            if path.is_absolute() or ".." in path.parts or normalized in {"", "."}:
+                raise RuntimeError(f"Git reported an unsafe changed path: {relative}")
+            candidate = root.joinpath(*path.parts)
+            if candidate.is_symlink():
+                state[normalized] = f"symlink:{candidate.readlink()}"
+            elif not candidate.exists():
+                state[normalized] = "deleted"
+            elif candidate.is_file():
+                digest = hashlib.sha256()
+                with candidate.open("rb") as handle:
+                    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                state[normalized] = f"sha256:{digest.hexdigest()}"
+            else:
+                state[normalized] = "non-file"
+        return state
 
     @staticmethod
     def _weighted_score(protocol_case: dict[str, Any], results: list[dict[str, Any]]) -> float:

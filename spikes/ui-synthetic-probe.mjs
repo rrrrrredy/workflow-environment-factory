@@ -27,7 +27,7 @@ const server = spawn(python, [join(root, "spikes", "synthetic_server.py")], {
 });
 
 async function waitForHealth() {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
+  for (let attempt = 0; attempt < 240; attempt += 1) {
     if (server.exitCode !== null) {
       const stderr = await new Promise((resolvePromise) => {
         let output = "";

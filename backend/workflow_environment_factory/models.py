@@ -167,6 +167,7 @@ class RunRecord(BaseModel):
     status: RunStatus
     workspace_path: str
     simulator_database_path: str | None = None
+    agent_attempted: bool = False
     codex_events: list[dict[str, Any]] = Field(default_factory=list)
     error: str = ""
     started_at: datetime = Field(default_factory=utc_now)

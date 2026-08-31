@@ -4,6 +4,11 @@ All notable user-visible changes are documented here. The project follows Semant
 
 ## [Unreleased]
 
+- A Score now requires retained evidence that the Codex process started, rejects a merely prepared workspace, and has one deterministic immutable head per Run even when an older database contains duplicate historical rows.
+- Docker verification mounts the Agent workspace read-only; every verifier also receives before/after workspace fingerprints, and any mutation produces `validator_error` plus `not_scored` instead of a task result.
+- The installer refuses a foreign same-name Startup shortcut; inspection reports the collision, and uninstall removes only a shortcut carrying this product's ownership marker.
+- RunCase Interchange is pinned to v0.1.1 by exact commit and schema hashes, closing portable-path traversal; protocol-import errors now identify the schema before the detailed validation message.
+- Release documentation now distinguishes exact Python version constraints from an artifact-hash lock, and the nested synthetic UI probe allows the documented slow-start window.
 - Windows archive lifecycle CI now uses and records a narrow Docker command stub while the separate Ubuntu job retains the real Docker task gates; the evidence no longer implies same-host Docker Desktop acceptance.
 - The 0.1.0 tag path now publishes only a Windows technical preview: its attested manifest records that authenticated Codex and single-host Docker Desktop gates were not run, while those gates remain required before any stable label; macOS is explicitly unsupported.
 - Tag publishing now fails immediately while the repository is private, matching GitHub's provenance-attestation boundary for individual accounts and the documented public-before-tag release order.
