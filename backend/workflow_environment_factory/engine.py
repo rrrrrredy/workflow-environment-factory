@@ -81,6 +81,8 @@ class LocalTestEngine:
 
 class DockerEngine:
     name = "docker"
+    image_inspect_timeout_ms = 10_000
+    image_pull_timeout_ms = 300_000
 
     def __init__(self, executable: str = "docker"):
         self.executable = executable
@@ -90,10 +92,54 @@ class DockerEngine:
             Path.cwd(), "", [self.executable, "version", "--format", "{{.Server.Version}}"], 10_000
         )
 
+    def _prepare_image(self, workspace: Path, image: str) -> ProcessResult | None:
+        runner = LocalTestEngine()
+        inspection = runner.run(
+            workspace,
+            "",
+            [self.executable, "image", "inspect", image],
+            self.image_inspect_timeout_ms,
+        )
+        if inspection.status == "pass":
+            return None
+        if inspection.status in {"error", "timeout"}:
+            return ProcessResult(
+                status="error",
+                exit_code=inspection.exit_code,
+                stdout=inspection.stdout,
+                stderr=_bounded(
+                    "container image inspection failed before verifier execution: "
+                    f"{inspection.stderr or inspection.stdout or inspection.status}"
+                ),
+                duration_ms=inspection.duration_ms,
+            )
+
+        pull = runner.run(
+            workspace,
+            "",
+            [self.executable, "pull", image],
+            self.image_pull_timeout_ms,
+        )
+        if pull.status == "pass":
+            return None
+        return ProcessResult(
+            status="error",
+            exit_code=pull.exit_code,
+            stdout=pull.stdout,
+            stderr=_bounded(
+                "container image preparation failed before verifier execution: "
+                f"{pull.stderr or pull.stdout or pull.status}"
+            ),
+            duration_ms=pull.duration_ms,
+        )
+
     def run(self, workspace: Path, image: str, argv: list[str], timeout_ms: int) -> ProcessResult:
         workspace = workspace.resolve()
         if not workspace.is_dir():
             raise ValueError(f"workspace does not exist: {workspace}")
+        preparation = self._prepare_image(workspace, image)
+        if preparation is not None:
+            return preparation
         container_name = f"wef-{uuid4().hex[:20]}"
         uid = os.getuid() if hasattr(os, "getuid") else None
         gid = os.getgid() if hasattr(os, "getgid") else None

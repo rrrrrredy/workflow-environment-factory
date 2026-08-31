@@ -4,6 +4,7 @@ All notable user-visible changes are documented here. The project follows Semant
 
 ## [Unreleased]
 
+- Immutable verifier-image inspection and pulling now happen before the task timer starts; acquisition failures are reported as environment errors instead of task failures or task timeouts.
 - Clean-Windows installation acceptance now pins and restores the loopback host variable across nested install, repair, and uninstall checks.
 - Linux Docker verifiers now run as the host uid/gid so validation cannot leave root-owned files that make resets or cleanup fail.
 - Windows CI and release installation gates now use an exact Python build that is available on the Windows 2025 runner.
