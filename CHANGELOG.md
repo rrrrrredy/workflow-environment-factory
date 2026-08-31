@@ -4,6 +4,7 @@ All notable user-visible changes are documented here. The project follows Semant
 
 ## [Unreleased]
 
+- Tag publishing now fails immediately while the repository is private, matching GitHub's provenance-attestation boundary for individual accounts and the documented public-before-tag release order.
 - Immutable verifier-image inspection and pulling now happen before the task timer starts; acquisition failures are reported as environment errors instead of task failures or task timeouts.
 - Clean-Windows installation acceptance now pins and restores the loopback host variable across nested install, repair, and uninstall checks.
 - Linux Docker verifiers now run as the host uid/gid so validation cannot leave root-owned files that make resets or cleanup fail.

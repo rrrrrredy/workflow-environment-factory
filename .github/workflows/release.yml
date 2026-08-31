@@ -14,6 +14,12 @@ jobs:
     env:
       WEF_DOCKER_GATE_IMAGE: python:3.11.16-slim-bookworm@sha256:0bee7276f83efd4a1ee05bbbf4281d95ed28e079220a9457f25a93e3f1e3c31b
     steps:
+      - name: Require public repository for provenance
+        shell: pwsh
+        run: |
+          if ("${{ github.event.repository.visibility }}" -ne "public") {
+            throw "Publish the reviewed repository and enable public protections before pushing a release tag; GitHub cannot attest a private personal repository."
+          }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           path: product

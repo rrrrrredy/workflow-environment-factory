@@ -38,6 +38,8 @@ The gate must run from a normal Windows session. Before either model call, it pr
 
 The release workflow verifies the committed real Codex evidence, repeats the Docker and browser gates rather than trusting an earlier workflow, builds the Windows source archive with compiled web assets, pinned protocol schemas, and an embedded `release-source.json` for no-`.git` acceptance, emits a SHA-256 file plus a commit/protocol/Docker/evidence-bound release manifest, and attaches GitHub build provenance.
 
+The reviewed repository must be made public before the release tag is pushed. GitHub does not issue build-provenance attestations for a private repository owned by an individual account. Make the repository public only after the authenticated gate and final reviews pass, immediately enable secret scanning, push protection, Dependabot security updates, and strict `main` checks, and then push the tag. The release workflow fails before checkout when the repository is still private.
+
 A separate fresh Windows job runs the real installer, loopback service, Codex plugin/marketplace registration, Startup removal, data preservation, reinstall, and explicit deletion. Its sanitized `factory-installation-evidence.json` is published with the archive. The Ubuntu Docker gate and this Windows lifecycle gate are complementary; neither is described as a single-host Windows 11 Docker Desktop acceptance.
 
 The workflow publishes a GitHub prerelease using the version-matched notes under `docs/releases/`. A missing notes file blocks publication; an automatically generated commit summary is not accepted as the product release page.
