@@ -23,14 +23,21 @@ $expectedSchemaSha256 = @{
 
 function Copy-Schemas([string]$SourceDirectory) {
   $resolvedSource = [System.IO.Path]::GetFullPath($SourceDirectory)
+  $strictUtf8 = [Text.UTF8Encoding]::new($false, $true)
+  $canonicalUtf8 = [Text.UTF8Encoding]::new($false)
   foreach ($name in $schemaNames) {
     $sourcePath = Join-Path $resolvedSource $name
     if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { throw "Protocol schema missing: $sourcePath" }
-    $actualHash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $sourceText = [System.IO.File]::ReadAllText($sourcePath, $strictUtf8)
+    $canonicalText = $sourceText.Replace("`r`n", "`n").Replace("`r", "`n")
+    $canonicalBytes = $canonicalUtf8.GetBytes($canonicalText)
+    $actualHash = [Convert]::ToHexString(
+      [Security.Cryptography.SHA256]::HashData($canonicalBytes)
+    ).ToLowerInvariant()
     if ($actualHash -cne $expectedSchemaSha256[$name]) {
-      throw "Protocol schema $name does not match RunCase Interchange v0.1.1 commit $protocolCommit. Expected $($expectedSchemaSha256[$name]), got $actualHash."
+      throw "Protocol schema $name does not match canonical LF bytes from RunCase Interchange v0.1.1 commit $protocolCommit. Expected $($expectedSchemaSha256[$name]), got $actualHash."
     }
-    Copy-Item -LiteralPath $sourcePath -Destination (Join-Path $destination $name) -Force
+    [System.IO.File]::WriteAllBytes((Join-Path $destination $name), $canonicalBytes)
   }
 }
 
