@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "workflow-environment-factory"
-version = "0.2.0"
+version = "0.2.1"
 description = "Turn real repositories and Issue-to-PR workflows into resettable, variable, objectively scored Codex environments."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"

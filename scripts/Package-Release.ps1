@@ -1,5 +1,5 @@
 param(
-  [string]$Version = "0.2.0",
+  [string]$Version = "0.2.1",
   [string]$OutputDirectory = "",
   [string]$ProtocolRoot = ""
 )
@@ -82,11 +82,23 @@ try {
     } | ConvertTo-Json -Depth 4
     [System.IO.File]::WriteAllText((Join-Path $stageRoot ".runtime-deps\runcase-interchange\dependency.json"), "$dependencyManifest`n")
 
-    $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
-    if ($null -eq $tar) { $tar = Get-Command tar -ErrorAction Stop }
-    & $tar.Source -a -c -f $archivePath -C $expanded $folderName
-    if ($LASTEXITCODE -ne 0) { throw "Release archive creation failed." }
-    $listing = (& $tar.Source -tf $archivePath | Out-String)
+    [System.IO.Compression.ZipFile]::CreateFromDirectory(
+      $expanded,
+      $archivePath,
+      [System.IO.Compression.CompressionLevel]::Optimal,
+      $false
+    )
+    $magic = [System.IO.File]::ReadAllBytes($archivePath)
+    if ($magic.Length -lt 4 -or $magic[0] -ne 0x50 -or $magic[1] -ne 0x4b -or $magic[2] -ne 0x03 -or $magic[3] -ne 0x04) {
+      throw "Release archive is not a standard ZIP file."
+    }
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
+    try {
+      $entries = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+      foreach ($entry in $zip.Entries) { [void]$entries.Add($entry.FullName) }
+    } finally {
+      $zip.Dispose()
+    }
     foreach ($required in @(
       "$folderName/.agents/plugins/marketplace.json",
       "$folderName/LICENSE",
@@ -98,7 +110,7 @@ try {
       "$folderName/dist/web/index.html",
       "$folderName/.runtime-deps/runcase-interchange/0.1.2/schemas/workflow.case.v1.schema.json"
     )) {
-      if (-not $listing.Contains($required, [StringComparison]::Ordinal)) {
+      if (-not $entries.Contains($required)) {
         throw "Release archive is missing required file: $required"
       }
     }

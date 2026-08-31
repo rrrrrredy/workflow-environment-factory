@@ -94,7 +94,7 @@ def _agent_case_view(case: Any) -> dict[str, Any]:
 
 
 def create_app(services: Services) -> FastAPI:
-    app = FastAPI(title="Workflow Environment Factory", version="0.2.0", docs_url=None, redoc_url=None)
+    app = FastAPI(title="Workflow Environment Factory", version="0.2.1", docs_url=None, redoc_url=None)
     session_token = load_or_create_token(services.settings.token_path)
 
     @app.middleware("http")
@@ -122,7 +122,7 @@ def create_app(services: Services) -> FastAPI:
         return {
             "ok": True,
             "product": "workflow-environment-factory",
-            "version": "0.2.0",
+            "version": "0.2.1",
             "instance_id": os.getenv("WEF_PROCESS_TOKEN"),
         }
 
@@ -146,7 +146,7 @@ def create_app(services: Services) -> FastAPI:
         docker = services.engine.availability() if isinstance(services.engine, DockerEngine) else None
         return {
             "product": "Workflow Environment Factory",
-            "version": "0.2.0",
+            "version": "0.2.1",
             "engine": services.engine.name,
             "docker_available": None if docker is None else docker.status == "pass",
             "docker_details": None if docker is None else docker.stderr or docker.stdout,

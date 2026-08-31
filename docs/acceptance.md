@@ -1,6 +1,6 @@
 # Acceptance and evidence
 
-Passing a build is not product acceptance. Version 0.2.0 separates deterministic Case evidence, hosted package lifecycle evidence, platform isolation evidence, and authenticated Agent evidence so one cannot substitute for another.
+Passing a build is not product acceptance. Version 0.2.1 separates deterministic Case evidence, hosted package lifecycle evidence, platform isolation evidence, and authenticated Agent evidence so one cannot substitute for another.
 
 ## Current status
 
@@ -59,14 +59,14 @@ On a clean Windows 11 checkout with authenticated Codex and Docker Desktop, set 
 $env:WEF_NODE = 'C:\path\to\node-v22\node.exe'
 $env:WEF_PYTHON = 'C:\path\to\python.exe'
 $env:WEF_DOCKER_GATE_IMAGE = 'python:3.11.16-slim-bookworm@sha256:0bee7276f83efd4a1ee05bbbf4281d95ed28e079220a9457f25a93e3f1e3c31b'
-.\scripts\Prepare-ReleaseEvidence.ps1 -Version 0.2.0 -ProtocolRoot C:\path\to\runcase-interchange
+.\scripts\Prepare-ReleaseEvidence.ps1 -Version 0.2.1 -ProtocolRoot C:\path\to\runcase-interchange
 ```
 
 The script refuses a dirty checkout or an existing product installation. It temporarily installs the real plugin and validates the user-facing distribution path, starts the loopback service with disposable data, then runs authenticated Codex with ambient user config disabled and only the product's MCP server explicitly registered. Codex completes one code Case and one Issue-to-PR Case; Docker-backed scoring proves the outcomes, the known-correct object remains absent, required MCP simulator actions are present, and both Runs are cleaned. The gate then uninstalls and proves that plugin, marketplace, service, Startup entry, and data are absent. It writes only a sanitized, commit-bound JSON evidence file; prompts, repository contents, credentials, and local paths are excluded.
 
 Run this gate from an ordinary Windows Terminal or PowerShell session. Each real Run first performs a no-model App Server workspace preflight under the same offline writable-root boundary; a failure stops before model use and makes the release gate inconclusive. Never rerun it with unrestricted Codex execution merely to obtain a green artifact.
 
-The evidence is single-run proof for two golden tasks, not a model-quality benchmark. Review and commit only `release-evidence/workflow-product-gate-0.2.0.json`, then run `scripts\Verify-ReleaseEvidence.ps1` before tagging.
+The evidence is single-run proof for two golden tasks, not a model-quality benchmark. Review and commit only `release-evidence/workflow-product-gate-0.2.1.json`, then run `scripts\Verify-ReleaseEvidence.ps1` before tagging.
 
 ## Synthetic browser probe
 

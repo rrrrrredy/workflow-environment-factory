@@ -28,7 +28,7 @@ test("portable arguments and unsafe roots fail closed", () => {
 test("Codex aligned plugin and marketplace tables are parsed exactly", () => {
   assert.equal(
     pluginListingContains(
-      "workflow-environment-factory@workflow-environment-factory    installed, enabled  0.2.0  /tmp/plugin",
+      "workflow-environment-factory@workflow-environment-factory    installed, enabled  0.2.1  /tmp/plugin",
       "workflow-environment-factory@workflow-environment-factory"
     ),
     true
@@ -39,12 +39,12 @@ test("Codex aligned plugin and marketplace tables are parsed exactly", () => {
   );
   assert.deepEqual(
     pluginListingRecord(
-      "workflow-environment-factory@workflow-environment-factory    installed, enabled  0.2.0  /tmp/plugin",
+      "workflow-environment-factory@workflow-environment-factory    installed, enabled  0.2.1  /tmp/plugin",
       "workflow-environment-factory@workflow-environment-factory"
     ),
     {
       selector: "workflow-environment-factory@workflow-environment-factory",
-      version: "0.2.0",
+      version: "0.2.1",
       path: resolve("/tmp/plugin")
     }
   );

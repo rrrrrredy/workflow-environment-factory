@@ -19,7 +19,7 @@ for (const path of requiredFiles) {
 }
 
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-if (manifest.name !== "workflow-environment-factory" || manifest.version !== "0.2.0") {
+if (manifest.name !== "workflow-environment-factory" || manifest.version !== "0.2.1") {
   throw new Error("Plugin name/version does not match the release contract.");
 }
 if (manifest.mcpServers !== "./.mcp.json" || manifest.skills !== "./skills/") {

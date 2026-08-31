@@ -69,25 +69,25 @@ Install and start the long-lived service from a normal host terminal: Windows Te
 
 > On Ubuntu hosts where Codex reports `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`, managed Case execution is likewise unavailable. The deterministic Docker gates still run, but they do not replace a passing Agent sandbox preflight.
 
-On Windows, download `workflow-environment-factory-0.2.0-windows-x64.zip` and its `.sha256` file from the same GitHub Release. Verify the archive, extract it, inspect the installer, then run:
+On Windows, download `workflow-environment-factory-0.2.1-windows-x64.zip` and its `.sha256` file from the same GitHub Release. Verify the archive, extract it, inspect the installer, then run:
 
 ```powershell
-$archive = '.\workflow-environment-factory-0.2.0-windows-x64.zip'
+$archive = '.\workflow-environment-factory-0.2.1-windows-x64.zip'
 $expected = (Get-Content "$archive.sha256").Split()[0]
 $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -ne $expected) { throw 'Workflow Environment Factory archive checksum mismatch.' }
 Expand-Archive $archive -DestinationPath .
-Set-Location workflow-environment-factory-0.2.0
+Set-Location workflow-environment-factory-0.2.1
 .\scripts\Install.ps1 -Open
 ```
 
-On Linux or Apple Silicon macOS, download `workflow-environment-factory-0.2.0-portable.tar.gz` and its `.sha256` file, then run:
+On Linux or Apple Silicon macOS, download `workflow-environment-factory-0.2.1-portable.tar.gz` and its `.sha256` file, then run:
 
 ```bash
-archive=workflow-environment-factory-0.2.0-portable.tar.gz
+archive=workflow-environment-factory-0.2.1-portable.tar.gz
 node -e 'const fs=require("node:fs"),c=require("node:crypto");const p=process.argv[1],e=fs.readFileSync(p+".sha256","utf8").trim().split(/\s+/)[0],a=c.createHash("sha256").update(fs.readFileSync(p)).digest("hex");if(a!==e)process.exit(1)' "$archive"
 tar -xzf "$archive"
-cd workflow-environment-factory-0.2.0
+cd workflow-environment-factory-0.2.1
 chmod +x scripts/*.sh
 ./scripts/Install.sh --open
 ```
@@ -184,7 +184,7 @@ $env:WEF_PYTHON = 'C:\path\to\python.exe'
 .\scripts\Check.ps1 -InstallDependencies
 ```
 
-The regular check performs a strict React production build, exact Python version-constraint check, static analysis, the two focused golden scenarios, and plugin/MCP validation. Hosted Windows, Linux, and macOS then run the real no-model restricted-read gate; Windows and Linux currently produce explicit unsupported-host evidence, while macOS must pass. The Python file is not an artifact-hash lock. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Version 0.2.0 packaging records that the authenticated code and Issue-to-PR Agent gate was not run; that optional gate remains mandatory before any stable label.
+The regular check performs a strict React production build, exact Python version-constraint check, static analysis, the two focused golden scenarios, and plugin/MCP validation. Hosted Windows, Linux, and macOS then run the real no-model restricted-read gate; Windows and Linux currently produce explicit unsupported-host evidence, while macOS must pass. The Python file is not an artifact-hash lock. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Version 0.2.1 packaging records that the authenticated code and Issue-to-PR Agent gate was not run; that optional gate remains mandatory before any stable label.
 
 Current evidence and remaining gates are listed in [acceptance](docs/acceptance.md). The tag-to-release gates and fixed Docker input are documented in [release process](docs/release-process.md). Contributions are welcome under [CONTRIBUTING.md](CONTRIBUTING.md); security reports follow [SECURITY.md](SECURITY.md).
 

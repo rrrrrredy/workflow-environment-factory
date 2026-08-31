@@ -124,7 +124,7 @@ class CodexWorkspacePreflight:
                     "clientInfo": {
                         "name": "workflow_environment_factory",
                         "title": "Workflow Environment Factory",
-                        "version": "0.2.0",
+                        "version": "0.2.1",
                     },
                     "capabilities": {
                         "experimentalApi": True,

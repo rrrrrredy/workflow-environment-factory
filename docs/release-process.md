@@ -1,6 +1,6 @@
 # Release process
 
-A source build is not a release. The 0.2.0 tag produces only a GitHub prerelease after deterministic Docker environment gates and extracted Windows/Linux/macOS archive lifecycles pass. Its attested manifests record that locally authenticated Codex, physical-Mac, macOS Docker Desktop, and single-host Windows 11 Docker Desktop gates were not run; those omissions block any stable label.
+A source build is not a release. The 0.2.1 tag produces only a GitHub prerelease after deterministic Docker environment gates and extracted Windows/Linux/macOS archive lifecycles pass. Its attested manifests record that locally authenticated Codex, physical-Mac, macOS Docker Desktop, and single-host Windows 11 Docker Desktop gates were not run; those omissions block any stable label.
 
 ## Fixed inputs
 
@@ -29,16 +29,16 @@ Hosted CI has no user's Codex authentication, so it cannot truthfully manufactur
 
 ```powershell
 $env:WEF_DOCKER_GATE_IMAGE = 'python:3.11.16-slim-bookworm@sha256:0bee7276f83efd4a1ee05bbbf4281d95ed28e079220a9457f25a93e3f1e3c31b'
-.\scripts\Prepare-ReleaseEvidence.ps1 -Version 0.2.0 -ProtocolRoot C:\path\to\runcase-interchange
+.\scripts\Prepare-ReleaseEvidence.ps1 -Version 0.2.1 -ProtocolRoot C:\path\to\runcase-interchange
 ```
 
-The gate must run from a normal Windows session. Before either model call, it selects the same restricted permission profile used by the Run and proves three properties with an offline App Server command: the generated workspace is writable, the product SQLite database is unreadable, and `git show` cannot open the source repository's known-correct commit. A platform that cannot enforce restricted reads fails closed before the model starts. Each Codex Run ignores ambient user config and explicitly loads only the Factory MCP server with a token derived for that Run; that token cannot access Blueprints, product data, or another Run. The gate then produces one real code Score and one real Issue-to-PR Score, proves the required MCP actions, and removes its temporary product installation. The sanitized file includes no prompts, repository content, credential, or local path. Review it and commit only `release-evidence/workflow-product-gate-0.2.0.json`.
+The gate must run from a normal Windows session. Before either model call, it selects the same restricted permission profile used by the Run and proves three properties with an offline App Server command: the generated workspace is writable, the product SQLite database is unreadable, and `git show` cannot open the source repository's known-correct commit. A platform that cannot enforce restricted reads fails closed before the model starts. Each Codex Run ignores ambient user config and explicitly loads only the Factory MCP server with a token derived for that Run; that token cannot access Blueprints, product data, or another Run. The gate then produces one real code Score and one real Issue-to-PR Score, proves the required MCP actions, and removes its temporary product installation. The sanitized file includes no prompts, repository content, credential, or local path. Review it and commit only `release-evidence/workflow-product-gate-0.2.1.json`.
 
 Codex 0.151.0 currently returns `windows sandbox: helper_unknown_error: apply deny-read ACLs` on one native Windows path; hosted Windows can accept the profile yet still read the product database or source solution. CI may record only those exact conditions as `known_unsupported`, with Agent execution and model execution both false. Any different isolation failure remains a failing gate. A stable release still requires a real passing preflight and authenticated golden Runs; the known-unsupported record cannot satisfy either requirement.
 
 Hosted Ubuntu may likewise record only the exact `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted` sandbox-start failure. This proves the hosted environment cannot execute the Agent safely; it does not weaken the production permission profile and cannot satisfy the stable-release gate. macOS receives no such exception and must pass its no-model read-isolation probe.
 
-`Verify-ReleaseEvidence.ps1` requires the tested commit to be an ancestor of the reviewed code and permits only that evidence file to differ. The 0.2.0 technical preview packages without this proof and records `not_run` in the attested manifests. Authenticated evidence remains required before any stable release.
+`Verify-ReleaseEvidence.ps1` requires the tested commit to be an ancestor of the reviewed code and permits only that evidence file to differ. The 0.2.1 technical preview packages without this proof and records `not_run` in the attested manifests. Authenticated evidence remains required before any stable release.
 
 The release workflow repeats the Docker and browser gates rather than trusting an earlier workflow, builds Windows and portable archives with compiled web assets, pinned protocol schemas, and an embedded `release-source.json` for no-`.git` acceptance, emits SHA-256 files plus commit/protocol/Docker-bound technical-preview manifests, and attaches GitHub build provenance.
 

@@ -16,23 +16,23 @@ GitHub-hosted Ubuntu proves the full portable plugin/service lifecycle with a re
 
 ## Install from a release archive
 
-1. Download `workflow-environment-factory-0.2.0-windows-x64.zip` and its `.sha256` file from the same GitHub Release.
+1. Download `workflow-environment-factory-0.2.1-windows-x64.zip` and its `.sha256` file from the same GitHub Release.
 2. Verify the archive before extracting it:
 
    ```powershell
-   Get-FileHash .\workflow-environment-factory-0.2.0-windows-x64.zip -Algorithm SHA256
+   Get-FileHash .\workflow-environment-factory-0.2.1-windows-x64.zip -Algorithm SHA256
    ```
 
 3. Extract the archive, inspect `scripts\Install.ps1`, then run:
 
    ```powershell
-   Set-Location .\workflow-environment-factory-0.2.0
+   Set-Location .\workflow-environment-factory-0.2.1
    .\scripts\Install.ps1 -Open
    ```
 
 4. Restart Codex so the new Skill and MCP server are discovered.
 
-On Linux or Apple Silicon macOS, download `workflow-environment-factory-0.2.0-portable.tar.gz` plus its `.sha256`, verify it, extract it, then run from the extracted directory:
+On Linux or Apple Silicon macOS, download `workflow-environment-factory-0.2.1-portable.tar.gz` plus its `.sha256`, verify it, extract it, then run from the extracted directory:
 
 ```bash
 chmod +x scripts/*.sh
