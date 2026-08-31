@@ -43,7 +43,7 @@ jobs:
       - name: Verify Windows install, start, preserve, reinstall, delete, and uninstall
         run: |
           $protocolRoot = (Resolve-Path ..\protocol).Path
-          .\scripts\Acceptance-InstallUninstall.ps1 -ProtocolRoot $protocolRoot -EvidencePath (Join-Path $env:RUNNER_TEMP "factory-installation-evidence.json")
+          .\scripts\Acceptance-InstallUninstall.ps1 -UseDockerStub -ProtocolRoot $protocolRoot -EvidencePath (Join-Path $env:RUNNER_TEMP "factory-installation-evidence.json")
       - name: Install CI Chromium
         run: npx playwright install chromium
       - name: Run the single UI golden scenario

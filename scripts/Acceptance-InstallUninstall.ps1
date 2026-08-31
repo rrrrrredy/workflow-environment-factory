@@ -1,7 +1,8 @@
 param(
   [ValidateRange(1024, 65535)][int]$Port = 53121,
   [string]$ProtocolRoot = "",
-  [string]$EvidencePath = ""
+  [string]$EvidencePath = "",
+  [switch]$UseDockerStub
 )
 
 . (Join-Path $PSScriptRoot "Common.ps1")
@@ -91,7 +92,7 @@ $selector = "workflow-environment-factory@workflow-environment-factory"
 $marketplace = "workflow-environment-factory"
 $startupDirectory = [Environment]::GetFolderPath("Startup")
 $shortcutPath = Join-Path $startupDirectory "Workflow Environment Factory.lnk"
-$environmentNames = @("CODEX_HOME", "WEF_DATA_DIR", "WEF_PORT", "WEF_HOST")
+$environmentNames = @("CODEX_HOME", "WEF_DATA_DIR", "WEF_PORT", "WEF_HOST", "DOCKER_EXECUTABLE")
 $previousEnvironment = @{}
 foreach ($name in $environmentNames) {
   $previousEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
@@ -107,6 +108,26 @@ try {
   [Environment]::SetEnvironmentVariable("WEF_DATA_DIR", $acceptanceData, "Process")
   [Environment]::SetEnvironmentVariable("WEF_PORT", [string]$Port, "Process")
   [Environment]::SetEnvironmentVariable("WEF_HOST", "127.0.0.1", "Process")
+  $dockerMode = "real_server"
+  if ($UseDockerStub) {
+    $dockerMode = "command_stub"
+    $dockerCommandPath = Join-Path $acceptanceRoot "docker.cmd"
+    $dockerStub = @'
+@echo off
+if /I "%~1"=="version" (
+  echo 0.0.0-acceptance-stub
+  exit /b 0
+)
+echo unsupported Docker acceptance command 1>&2
+exit /b 2
+'@
+    [System.IO.File]::WriteAllText($dockerCommandPath, $dockerStub, [Text.ASCIIEncoding]::new())
+  } else {
+    $dockerCommand = Get-Command docker.exe -ErrorAction SilentlyContinue
+    if ($null -eq $dockerCommand) { $dockerCommand = Get-Command docker -ErrorAction Stop }
+    $dockerCommandPath = $dockerCommand.Source
+  }
+  [Environment]::SetEnvironmentVariable("DOCKER_EXECUTABLE", $dockerCommandPath, "Process")
 
   $initialPlugins = Invoke-CodexText @("plugin", "list")
   $initialMarketplaces = Invoke-CodexText @("plugin", "marketplace", "list")
@@ -194,11 +215,11 @@ createServer((_request, response) => {
   Assert-Acceptance (-not (Test-WefMarketplacePresent (Invoke-CodexText @("plugin", "marketplace", "list")) $marketplace)) "final uninstall left the marketplace registered"
   & (Join-Path $PSScriptRoot "Inspect-Installation.ps1") -RequireAbsent -RequireNoData -Port $Port -DataDir $acceptanceData | Out-Null
 
-  $dockerVersion = (& docker version --format '{{.Server.Version}}|{{.Server.Os}}|{{.Server.Arch}}' 2>&1 | Out-String).Trim()
+  $dockerVersion = (& $dockerCommandPath version --format '{{.Server.Version}}|{{.Server.Os}}|{{.Server.Arch}}' 2>&1 | Out-String).Trim()
   if ($LASTEXITCODE -ne 0) { throw "Docker became unavailable after installation acceptance: $dockerVersion" }
   $sourceEvidence = Get-AcceptanceSourceEvidence
   $evidence = [ordered]@{
-    schema_version = "product.installation-acceptance.v2"
+    schema_version = "product.installation-acceptance.v3"
     product = "workflow-environment-factory"
     product_version = (Get-Content -LiteralPath (Join-Path $script:WefRoot "pyproject.toml") -Raw | Select-String -Pattern '(?m)^version\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
     tested_commit = $sourceEvidence.commit
@@ -211,12 +232,16 @@ createServer((_request, response) => {
     node_version = (& (Resolve-WefNode) -p "process.versions.node").Trim()
     python_version = (& (Resolve-WefPython) -c "import platform; print(platform.python_version())").Trim()
     codex_version = Get-AcceptanceCodexVersion
-    docker_server = $dockerVersion
+    docker_check = [ordered]@{
+      mode = $dockerMode
+      output = $dockerVersion
+      same_host_server_proven = -not $UseDockerStub
+    }
     checks = [ordered]@{
       clean_isolated_codex_home = $true
       failed_install_rolled_back = $true
       failed_repair_restored_existing_install = $true
-      docker_doctor_passed = $true
+      docker_prerequisite_path_passed = $true
       service_started = $true
       loopback_only = $true
       plugin_installed = $true
@@ -230,7 +255,11 @@ createServer((_request, response) => {
       final_service_absent = $true
       installation_state_audit_passed = $true
     }
-    evidence_boundary = "This proves the Windows installation lifecycle and a responding Docker server. Linux-container task execution is proven separately by the Docker golden gate."
+    evidence_boundary = if ($UseDockerStub) {
+      "This proves the Windows archive installation lifecycle with a Docker command stub. It does not prove Docker Desktop on the same Windows host. Real Linux-container task execution is proven separately by the Ubuntu Docker golden gate."
+    } else {
+      "This proves the Windows archive installation lifecycle and a responding Docker server on the same host. Linux-container task execution is proven separately by the Docker golden gate."
+    }
   }
   $json = $evidence | ConvertTo-Json -Depth 6
   if (-not [string]::IsNullOrWhiteSpace($EvidencePath)) {

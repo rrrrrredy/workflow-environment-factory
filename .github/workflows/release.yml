@@ -98,16 +98,19 @@ jobs:
           Expand-Archive -LiteralPath $archive -DestinationPath $extractRoot
           $releaseRoot = Join-Path $extractRoot "workflow-environment-factory-$version"
           $evidencePath = Join-Path $env:RUNNER_TEMP "factory-installation-evidence.json"
-          & (Join-Path $releaseRoot "scripts\Acceptance-InstallUninstall.ps1") -EvidencePath $evidencePath
+          & (Join-Path $releaseRoot "scripts\Acceptance-InstallUninstall.ps1") -UseDockerStub -EvidencePath $evidencePath
           $evidence = Get-Content -LiteralPath $evidencePath -Raw | ConvertFrom-Json
-          if ($evidence.schema_version -ne "product.installation-acceptance.v2") { throw "Unsupported installation evidence schema." }
+          if ($evidence.schema_version -ne "product.installation-acceptance.v3") { throw "Unsupported installation evidence schema." }
           if ($evidence.source_kind -ne "release_archive") { throw "Acceptance did not run from the release archive." }
           if ($evidence.tested_commit -ne $env:GITHUB_SHA) { throw "Archive commit does not match the release tag commit." }
+          if ($evidence.docker_check.mode -ne "command_stub" -or [bool]$evidence.docker_check.same_host_server_proven) {
+            throw "Hosted Windows evidence must disclose that Docker Desktop was not proven on the same host."
+          }
           foreach ($check in @(
             "clean_isolated_codex_home",
             "failed_install_rolled_back",
             "failed_repair_restored_existing_install",
-            "docker_doctor_passed",
+            "docker_prerequisite_path_passed",
             "service_started",
             "loopback_only",
             "plugin_installed",

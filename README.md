@@ -4,7 +4,7 @@ Workflow Environment Factory turns your own repository or Issue-to-PR process in
 
 It is not a public benchmark, an environment-outsourcing service, or a dashboard for watching an Agent. The useful output is a task pack you can keep, rerun, inspect, and improve as your repository and workflow change.
 
-> **Release status:** 0.1 technical preview for Windows 11 and Codex. CI covers both deterministic Docker verticals, the product, release archive, Windows installation lifecycle, and synthetic UI; this preview does not claim a real authenticated Codex run or single-host Windows 11 Docker Desktop acceptance and must not be labeled stable.
+> **Release status:** 0.1 technical preview for Windows 11 and Codex. CI covers both deterministic Docker verticals on Linux, the product, release archive, a Windows installation lifecycle with an explicitly disclosed Docker command stub, and synthetic UI; this preview does not claim a real authenticated Codex run or single-host Windows 11 Docker Desktop acceptance and must not be labeled stable.
 
 macOS is not supported by the 0.1 installer or lifecycle tools. The Python service, web UI, Docker executor, MCP server, and Codex App Server boundary are largely portable, but running those pieces from source is not a supported Mac installation.
 

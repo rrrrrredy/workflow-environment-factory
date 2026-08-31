@@ -4,6 +4,7 @@ All notable user-visible changes are documented here. The project follows Semant
 
 ## [Unreleased]
 
+- Windows archive lifecycle CI now uses and records a narrow Docker command stub while the separate Ubuntu job retains the real Docker task gates; the evidence no longer implies same-host Docker Desktop acceptance.
 - The 0.1.0 tag path now publishes only a Windows technical preview: its attested manifest records that authenticated Codex and single-host Docker Desktop gates were not run, while those gates remain required before any stable label; macOS is explicitly unsupported.
 - Tag publishing now fails immediately while the repository is private, matching GitHub's provenance-attestation boundary for individual accounts and the documented public-before-tag release order.
 - Immutable verifier-image inspection and pulling now happen before the task timer starts; acquisition failures are reported as environment errors instead of task failures or task timeouts.
