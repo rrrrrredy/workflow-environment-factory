@@ -4,7 +4,24 @@ Workflow Environment Factory turns your own repository or Issue-to-PR process in
 
 It is not a public benchmark, an environment-outsourcing service, or a dashboard for watching an Agent. The useful output is a task pack you can keep, rerun, inspect, and improve as your repository and workflow change.
 
-> **Release status:** 0.2 technical preview. Hosted Linux x64 runs the real-Docker gates, but its Codex sandbox currently fails while creating the required network namespace. Hosted Windows 11 either cannot apply or cannot enforce the required deny-read rule. Both are recorded as unsupported Agent-execution hosts, and the Factory stops before any model call. Apple Silicon macOS has downloadable-product lifecycle and read-isolation evidence, while Docker task execution, a physical Mac, an ordinary user-owned clean machine, and an authenticated Codex Run were not tested.
+> **Release status:** 0.2 architecture and lifecycle technical preview. Do not rely on this release for Codex task execution: no platform has yet passed the complete isolation, Docker task, and authenticated Agent path.
+
+## Which repository should I use?
+
+| What you want to do | Start here |
+| --- | --- |
+| Keep, diagnose, compare, and safely apply one Codex capability-file change | [Runtime Evolution Workbench](https://github.com/rrrrrredy/runtime-evolution-workbench) |
+| Build and inspect resettable workflow Cases; run Codex only where the isolation gate passes | [Workflow Environment Factory](https://github.com/rrrrrredy/workflow-environment-factory) |
+| Capture DeepSeek Harness SDK Runs as portable evidence | [DeepSeek Harness RunCase Adapter](https://github.com/rrrrrredy/deepseek-harness-runcase-adapter) |
+| Validate or implement portable Run, Case, and Score files | [RunCase Interchange](https://github.com/rrrrrredy/runcase-interchange) |
+
+## Platform evidence
+
+| Platform | What the hosted checks prove | Codex task execution in this release |
+| --- | --- | --- |
+| Windows 11 x64 | Downloadable archive, local service, UI, plugin lifecycle, and final absence | Unavailable: the required deny-read isolation cannot yet be applied or enforced; hosted Windows did not run the real Docker task gate |
+| Linux x64 | Downloadable archive lifecycle plus both real-Docker Case/reset/scoring gates | Unavailable on the hosted runner: Codex cannot create the required network namespace |
+| Apple Silicon macOS | Downloadable archive lifecycle and no-model read isolation | Unverified: no macOS Docker task gate, authenticated Codex Run, or physical Mac was used |
 
 ![Workflow Environment Factory Case matrix with fully synthetic data](docs/images/ui-desktop-case-factory-synthetic.png)
 
@@ -91,6 +108,8 @@ $env:WEF_PYTHON = 'C:\path\to\python.exe'
 ```
 
 See [installation and removal](docs/installation.md) for every state change and the portable start path.
+
+Default product data lives at `%LOCALAPPDATA%\WorkflowEnvironmentFactory` on Windows and `~/.workflow-environment-factory` on Linux/macOS unless you pass `-DataDir` or `--data-dir`. Uninstall preserves this data unless you explicitly request data deletion.
 
 ## Normal use
 

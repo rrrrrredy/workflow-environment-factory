@@ -1,25 +1,27 @@
 # Acceptance and evidence
 
-Passing a build is not product acceptance. The 0.1 release requires two real golden workflows plus the minimum failure and recovery evidence needed to trust their result.
+Passing a build is not product acceptance. Version 0.2.0 separates deterministic Case evidence, hosted package lifecycle evidence, platform isolation evidence, and authenticated Agent evidence so one cannot substitute for another.
 
 ## Current status
 
-| Gate | Status on 2026-08-28 | Evidence boundary |
+| Gate | Status on 2026-08-31 | Evidence boundary |
 |---|---|---|
-| Strict frontend production build | Passed | TypeScript strict check and Vite production bundle |
-| Focused backend golden scenarios | Passed | Nine tests cover API auth, code vertical, recorded Issue-to-PR, answer isolation, no-model App Server preflight, hardened Codex command settings, side-effect-free doctor configuration, data-root ownership, and failure classification using the explicit local test engine or fake App Server |
+| Strict frontend and backend checks | Passed | Production React build, Python static analysis, twenty focused tests, portable lifecycle tests, and plugin/MCP validation on the frozen candidate |
 | Agent answer-isolation regression | Passed | Agent Run has no `.git`, remote, alternates, or known-correct object; MCP Agent view omits solution commit and patch digest; untracked paths are scored |
-| Plugin and MCP structure | Passed | Official plugin validator, Skill validator, local structure validator, Node syntax, and MCP initialize/tools handshake |
-| Synthetic real-browser product flow | Passed | Local recording, three Case columns, inspector, three Runs, `not_scored` timeout boundary, mobile no-overflow, and zero console errors in Edge/Playwright |
-| Service lifecycle | Passed | Background start, authenticated health, verified-PID stop, and exact temporary-data cleanup |
-| Real Docker code vertical | **Pending** | Docker is not installed on the current development host; local tests do not satisfy this gate |
-| Real Docker Issue-to-PR vertical | **Pending** | Same blocker; must run the release-only Docker gate with an immutable real image |
-| Real Codex controlled Run with plugin | **Pending** | Must be performed in a clean acceptance environment, not by installing the preview into the developer's active Codex |
-| No-model Codex workspace preflight on current development host | **Blocked by host** | The current shell is already inside Codex; the explicit offline root fails with `apply deny-read ACLs`, starts zero model calls, removes its sentinel, and does not prove failure from normal Windows |
-| Fresh Windows 11 install/uninstall | **Pending** | Requires a separate clean environment and proof that no plugin/service/startup state remains after uninstall |
-| Two independent pre-release reviews | **Pending** | One adversarial reviewer and one user-perspective reviewer run only after release candidates are complete |
+| Synthetic real-browser product flow | Passed | Local recording, three Case columns, inspector, three Runs, `not_scored` timeout boundary, mobile no-overflow, and zero console errors with generated data |
+| Hosted Windows archive lifecycle | Passed | Install/repair failure rollback, loopback service, plugin/marketplace ownership, preservation, explicit deletion, and final absence; Docker is an explicitly recorded command stub |
+| Hosted Linux archive lifecycle | Passed | Build, plugin/service restart and removal, final absence, and a reachable real Docker daemon |
+| Hosted macOS archive lifecycle | Passed | Build, plugin/service restart and removal, final absence, and no-model read isolation; no Docker task gate or physical Mac |
+| Real Docker code vertical | Passed on hosted Linux | Three Cases prove baseline fail, correct state pass, reset equality, wrong Run fail, and corrected Run pass against the immutable release image |
+| Real Docker Issue-to-PR vertical | Passed on hosted Linux | Three Cases prove code and simulator negative/positive states, resets, provenance, and objective scoring against the immutable release image |
+| Windows Codex read isolation | Known unsupported | Exact deny-read ACL setup or enforcement failure only; `agent_execution_supported=false` and `model_executed=false` |
+| Hosted Linux Codex read isolation | Known unsupported | Exact `bwrap` network-namespace failure only; `agent_execution_supported=false` and `model_executed=false` |
+| Hosted macOS Codex read isolation | Passed | No-model shell writes only in the Run workspace and cannot read the product database or known-correct source commit |
+| Authenticated Codex code and Issue-to-PR Runs | Not run | Still required before a stable label; deterministic correct states are not credited to Codex |
+| Ordinary user-owned clean machine and physical Mac | Not run | Hosted lifecycle jobs do not substitute for either environment |
+| Independent adversarial and user-perspective review | Performed | Findings are tracked as release blockers or explicit preview limitations; the tag workflow must still pass after accepted fixes |
 
-The repository must remain a technical preview while any bold pending gate remains.
+The repository remains a technical preview while the authenticated Agent and ordinary-machine gates are not run. A known-unsupported platform record never enables Agent execution.
 
 ## Regular local check
 
@@ -57,14 +59,14 @@ On a clean Windows 11 checkout with authenticated Codex and Docker Desktop, set 
 $env:WEF_NODE = 'C:\path\to\node-v22\node.exe'
 $env:WEF_PYTHON = 'C:\path\to\python.exe'
 $env:WEF_DOCKER_GATE_IMAGE = 'python:3.11.16-slim-bookworm@sha256:0bee7276f83efd4a1ee05bbbf4281d95ed28e079220a9457f25a93e3f1e3c31b'
-.\scripts\Prepare-ReleaseEvidence.ps1 -Version 0.1.0 -ProtocolRoot C:\path\to\runcase-interchange
+.\scripts\Prepare-ReleaseEvidence.ps1 -Version 0.2.0 -ProtocolRoot C:\path\to\runcase-interchange
 ```
 
 The script refuses a dirty checkout or an existing product installation. It temporarily installs the real plugin and validates the user-facing distribution path, starts the loopback service with disposable data, then runs authenticated Codex with ambient user config disabled and only the product's MCP server explicitly registered. Codex completes one code Case and one Issue-to-PR Case; Docker-backed scoring proves the outcomes, the known-correct object remains absent, required MCP simulator actions are present, and both Runs are cleaned. The gate then uninstalls and proves that plugin, marketplace, service, Startup entry, and data are absent. It writes only a sanitized, commit-bound JSON evidence file; prompts, repository contents, credentials, and local paths are excluded.
 
 Run this gate from an ordinary Windows Terminal or PowerShell session. Each real Run first performs a no-model App Server workspace preflight under the same offline writable-root boundary; a failure stops before model use and makes the release gate inconclusive. Never rerun it with unrestricted Codex execution merely to obtain a green artifact.
 
-The evidence is single-run proof for two golden tasks, not a model-quality benchmark. Review and commit only `release-evidence/workflow-product-gate-0.1.0.json`, then run `scripts\Verify-ReleaseEvidence.ps1` before tagging.
+The evidence is single-run proof for two golden tasks, not a model-quality benchmark. Review and commit only `release-evidence/workflow-product-gate-0.2.0.json`, then run `scripts\Verify-ReleaseEvidence.ps1` before tagging.
 
 ## Synthetic browser probe
 

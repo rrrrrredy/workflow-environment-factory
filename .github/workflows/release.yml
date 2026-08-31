@@ -52,7 +52,23 @@ jobs:
           $protocolRoot = (Resolve-Path ../protocol).Path
           ./scripts/Package-Release.ps1 -Version $version -ProtocolRoot $protocolRoot -OutputDirectory (Join-Path $env:GITHUB_WORKSPACE "candidate")
           node scripts/Package-Portable-Release.mjs --version $version --output (Join-Path $env:GITHUB_WORKSPACE "candidate")
-          ./.venv/bin/python ./spikes/codex_read_isolation_gate.py --codex codex --evidence (Join-Path $env:GITHUB_WORKSPACE "candidate/factory-linux-build-read-isolation.json")
+          $readIsolationPath = Join-Path $env:GITHUB_WORKSPACE "candidate/factory-linux-build-read-isolation.json"
+          ./.venv/bin/python ./spikes/codex_read_isolation_gate.py --codex codex --allow-known-linux-sandbox-unsupported --evidence $readIsolationPath
+          $readIsolation = Get-Content -LiteralPath $readIsolationPath -Raw | ConvertFrom-Json
+          if ($readIsolation.schema -ne "wef.codex-read-isolation.v1" -or [bool]$readIsolation.model_executed) {
+            throw "Release read-isolation evidence has an invalid schema or reports a model call."
+          }
+          if ($readIsolation.status -eq "known_unsupported") {
+            if ([bool]$readIsolation.agent_execution_supported -or $readIsolation.limitation -ne "hosted_linux_network_namespace_unavailable") {
+              throw "Hosted Linux limitation evidence is broader than the one reviewed exception."
+            }
+          } elseif ($readIsolation.status -eq "passed") {
+            if (-not [bool]$readIsolation.agent_execution_supported -or $readIsolation.workspace_write -ne "pass" -or $readIsolation.product_database_read -ne "blocked" -or $readIsolation.source_solution_commit_read -ne "blocked") {
+              throw "Passing release read-isolation evidence omitted a required proof."
+            }
+          } else {
+            throw "Release read-isolation gate neither passed nor recorded the exact reviewed hosted-Linux limitation."
+          }
       - name: Run release UI gate
         working-directory: product
         env:
