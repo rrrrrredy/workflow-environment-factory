@@ -37,15 +37,12 @@ test("Codex aligned plugin and marketplace tables are parsed exactly", () => {
   );
 });
 
-test("portable ownership accepts the macOS-resolved Python executable only with the module marker", () => {
-  const linkedPython = "/tmp/factory/.venv/bin/python";
-  const realPython = "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13";
-  const siblingPython = "/tmp/factory/.venv/bin/python3";
+test("portable ownership requires the module marker and the per-process secret", () => {
   const marker = "workflow_environment_factory.cli";
-  const ownedPaths = [linkedPython, realPython, siblingPython];
-  assert.equal(commandOwnsServer(`${siblingPython} -m ${marker} serve`, ownedPaths, marker), true);
-  assert.equal(commandOwnsServer(`${realPython} -m another.module serve`, ownedPaths, marker), false);
-  assert.equal(commandOwnsServer(`/tmp/foreign/python -m ${marker} serve`, ownedPaths, marker), false);
+  const token = "a".repeat(64);
+  assert.equal(commandOwnsServer(`Python -m ${marker} serve`, marker, `WEF_PROCESS_TOKEN=${token}`, token), true);
+  assert.equal(commandOwnsServer(`Python -m another.module serve`, marker, `WEF_PROCESS_TOKEN=${token}`, token), false);
+  assert.equal(commandOwnsServer(`Python -m ${marker} serve`, marker, "WEF_PROCESS_TOKEN=foreign", token), false);
 });
 
 test("portable data deletion requires the exact Factory marker", () => {

@@ -7,11 +7,10 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
-  readdirSync,
-  realpathSync,
   rmSync,
   writeFileSync
 } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -259,6 +258,7 @@ function readService(dataDir) {
     resolve(record?.repository_root ?? "") !== repositoryRoot ||
     resolve(record?.server_path ?? "") !== venvPython() ||
     record?.command_marker !== "workflow_environment_factory.cli" ||
+    !/^[a-f0-9]{64}$/.test(record?.process_token ?? "") ||
     !Number.isInteger(record?.pid) ||
     record.pid < 1
   ) {
@@ -281,35 +281,32 @@ function processCommand(pid) {
   return result.status === 0 ? result.stdout.trim() : "";
 }
 
+function processEnvironment(pid) {
+  if (process.platform === "linux") {
+    try {
+      return readFileSync(`/proc/${pid}/environ`, "utf8").replaceAll("\0", " ");
+    } catch {
+      return "";
+    }
+  }
+  const result = spawnSync("ps", ["eww", "-p", String(pid), "-o", "command="], { encoding: "utf8" });
+  return result.status === 0 ? result.stdout.trim() : "";
+}
+
 function assertOwnedProcess(record) {
   const command = processCommand(record.pid);
-  const server = resolve(record.server_path);
-  const serverPaths = equivalentServerPaths(server);
-  if (!commandOwnsServer(command, serverPaths, record.command_marker)) {
+  const environment = processEnvironment(record.pid);
+  if (!commandOwnsServer(command, record.command_marker, environment, record.process_token)) {
     fail(`Refusing to signal PID ${record.pid}; its command does not match the owned Factory server.`);
   }
 }
 
-function equivalentServerPaths(server) {
-  const realServer = realpathSync(server);
-  const paths = new Set([server, realServer]);
-  for (const entry of readdirSync(dirname(server))) {
-    if (!/^python(?:\d+(?:\.\d+)*)?$/.test(entry)) continue;
-    const candidate = resolve(dirname(server), entry);
-    try {
-      if (realpathSync(candidate) === realServer) paths.add(candidate);
-    } catch {
-      // Ignore a broken sibling link; the recorded interpreter itself was already resolved.
-    }
-  }
-  return [...paths];
-}
-
-function commandOwnsServer(command, serverPaths, commandMarker) {
+function commandOwnsServer(command, commandMarker, environment, processToken) {
   return Boolean(
     command &&
-    serverPaths.some((serverPath) => command.includes(serverPath)) &&
-    command.includes(`-m ${commandMarker}`)
+    command.includes(`-m ${commandMarker}`) &&
+    environment &&
+    environment.includes(`WEF_PROCESS_TOKEN=${processToken}`)
   );
 }
 
@@ -369,6 +366,7 @@ async function startService(options) {
   const stdoutFd = openSync(join(logsDir, "service.stdout.log"), "a", 0o600);
   const stderrPath = join(logsDir, "service.stderr.log");
   const stderrFd = openSync(stderrPath, "a", 0o600);
+  const processToken = randomBytes(32).toString("hex");
   const child = spawn(server, ["-m", "workflow_environment_factory.cli", "serve"], {
     cwd: repositoryRoot,
     detached: true,
@@ -378,6 +376,7 @@ async function startService(options) {
       WEF_PORT: String(options.port),
       WEF_HOST: "127.0.0.1",
       WEF_PROTOCOL_SCHEMA_DIR: protocolDirectory(),
+      WEF_PROCESS_TOKEN: processToken,
       PYTHONUNBUFFERED: "1"
     },
     stdio: ["ignore", stdoutFd, stderrFd]
@@ -393,6 +392,7 @@ async function startService(options) {
     repository_root: repositoryRoot,
     server_path: server,
     command_marker: "workflow_environment_factory.cli",
+    process_token: processToken,
     started_at: new Date().toISOString()
   };
   writeFileSync(servicePath(dataDir), `${JSON.stringify(record, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
@@ -627,7 +627,6 @@ export {
   assertDataRoot,
   assertSafeDataPath,
   commandOwnsServer,
-  equivalentServerPaths,
   initializeDataRoot,
   marketplaceListingContains,
   parseArguments,
