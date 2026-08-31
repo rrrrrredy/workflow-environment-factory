@@ -4,6 +4,8 @@ All notable user-visible changes are documented here. The project follows Semant
 
 ## [Unreleased]
 
+- Linux Docker verifiers now run as the host uid/gid so validation cannot leave root-owned files that make resets or cleanup fail.
+- Windows CI and release installation gates now use an exact Python build that is available on the Windows 2025 runner.
 - The environment example now uses the public RunCase Interchange repository name instead of the retired protocol working name.
 - GitHub tag releases now require curated, version-matched adoption notes and are labeled prereleases so the public release surface preserves the Windows/Docker/Codex evidence boundary.
 - Installation is now transactional across the product-created data root, plugin, marketplace, Startup shortcut, service startup, and failed `-Repair`; the clean-Windows gate injects real port conflicts and requires restoration plus a machine-readable zero-residue audit.

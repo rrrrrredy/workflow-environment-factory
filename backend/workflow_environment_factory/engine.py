@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import time
 from dataclasses import dataclass
@@ -25,6 +26,14 @@ class ExecutionEngine(Protocol):
 
 def _bounded(value: str, limit: int = 1_000_000) -> str:
     return value if len(value) <= limit else value[-limit:]
+
+
+def _container_user_args(platform_name: str, uid: int | None, gid: int | None) -> list[str]:
+    if platform_name != "posix":
+        return []
+    if uid is None or gid is None:
+        raise RuntimeError("POSIX Docker execution requires the host uid and gid")
+    return ["--user", f"{uid}:{gid}"]
 
 
 class LocalTestEngine:
@@ -86,6 +95,8 @@ class DockerEngine:
         if not workspace.is_dir():
             raise ValueError(f"workspace does not exist: {workspace}")
         container_name = f"wef-{uuid4().hex[:20]}"
+        uid = os.getuid() if hasattr(os, "getuid") else None
+        gid = os.getgid() if hasattr(os, "getgid") else None
         command = [
             self.executable,
             "run",
@@ -101,6 +112,7 @@ class DockerEngine:
             "--pids-limit",
             "128",
             "--read-only",
+            *_container_user_args(os.name, uid, gid),
             "--tmpfs",
             "/tmp:rw,noexec,nosuid,size=256m",
             "--mount",
