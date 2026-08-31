@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from conftest import RepositoryFixture, make_code_correct, mark_synthetic_agent_attempt
 from workflow_environment_factory.engine import ProcessResult
-from workflow_environment_factory.models import BlueprintCreate, RunStatus
+from workflow_environment_factory.models import AttemptOrigin, BlueprintCreate, RunStatus
 
 
 def code_blueprint(repository: RepositoryFixture) -> BlueprintCreate:
@@ -60,8 +61,17 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
 
     failed_run = services.factory.prepare_run(cases[0].case_id)
     mark_synthetic_agent_attempt(services, failed_run)
-    failed_score = services.scorer.score(failed_run.run_id)
+    with pytest.raises(ValueError, match="synthetic fixture"):
+        services.scorer.score(failed_run.run_id)
+    failed_score = services.scorer.score(failed_run.run_id, allow_synthetic_fixture=True)
     assert failed_score["task_result"]["status"] == "fail"
+    assert failed_score["extensions"]["workflow_environment_factory"] == {
+        "engine": "local-test-only",
+        "attempt_origin": "synthetic_fixture",
+        "model_executed": False,
+        "verifier_output_ref": failed_score["extensions"]["workflow_environment_factory"]["verifier_output_ref"],
+    }
+    assert "no model was executed" in failed_score["nondeterminism"]["notes"][0]
     services.factory.cleanup_run(failed_run.run_id)
 
     passing_run = services.factory.prepare_run(cases[2].case_id)
@@ -81,7 +91,7 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
     unexpected.unlink()
     make_code_correct(passing_workspace)
     mark_synthetic_agent_attempt(services, passing_run)
-    passing_score = services.scorer.score(passing_run.run_id)
+    passing_score = services.scorer.score(passing_run.run_id, allow_synthetic_fixture=True)
     assert passing_score["task_result"] == {
         "status": "pass",
         "score": 1.0,
@@ -94,9 +104,11 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
     crashed_run = services.factory.prepare_run(cases[0].case_id)
     crashed_run.status = RunStatus.AGENT_CRASH
     crashed_run.agent_attempted = True
+    crashed_run.attempt_origin = AttemptOrigin.SYNTHETIC_FIXTURE
+    crashed_run.model_executed = False
     crashed_run.error = "Codex exited before validation with " + "Bear" + "er synthetic-secret-12345678"
     services.store.save_run(crashed_run)
-    crashed_score = services.scorer.score(crashed_run.run_id)
+    crashed_score = services.scorer.score(crashed_run.run_id, allow_synthetic_fixture=True)
     assert crashed_score["execution"]["status"] == "agent_crash"
     assert crashed_score["task_result"]["status"] == "not_scored"
     assert crashed_score["validations"] == []
@@ -128,7 +140,7 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
     original_engine = services.scorer.engine
     services.scorer.engine = MutatingVerifier()
     try:
-        mutated_score = services.scorer.score(mutated_run.run_id)
+        mutated_score = services.scorer.score(mutated_run.run_id, allow_synthetic_fixture=True)
     finally:
         services.scorer.engine = original_engine
     assert mutated_score["execution"]["status"] == "validator_error"

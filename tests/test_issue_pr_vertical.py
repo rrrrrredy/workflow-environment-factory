@@ -82,7 +82,7 @@ def test_recorded_issue_pr_case_requires_code_and_database_state(services, repos
     wrong_run = services.factory.prepare_run(cases[0].case_id)
     make_code_correct(Path(wrong_run.workspace_path))
     mark_synthetic_agent_attempt(services, wrong_run)
-    wrong_score = services.scorer.score(wrong_run.run_id)
+    wrong_score = services.scorer.score(wrong_run.run_id, allow_synthetic_fixture=True)
     assert wrong_score["task_result"]["status"] == "fail"
     issue_validation = next(row for row in wrong_score["validations"] if row["validator_id"] == "issue-pr-state")
     assert issue_validation["status"] == "fail"
@@ -105,7 +105,7 @@ def test_recorded_issue_pr_case_requires_code_and_database_state(services, repos
     )
     services.simulator.update_issue_status(database, issue_key, "in_review")
     mark_synthetic_agent_attempt(services, correct_run)
-    correct_score = services.scorer.score(correct_run.run_id)
+    correct_score = services.scorer.score(correct_run.run_id, allow_synthetic_fixture=True)
     assert correct_score["task_result"]["status"] == "pass"
     assert (
         next(row for row in correct_score["validations"] if row["validator_id"] == "issue-pr-state")["status"] == "pass"

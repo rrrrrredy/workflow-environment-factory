@@ -151,6 +151,7 @@ class CaseRecord(BaseModel):
 class RunStatus(StrEnum):
     PREPARING = "preparing"
     READY = "ready"
+    QUEUED = "queued"
     RUNNING = "running"
     VALIDATING = "validating"
     COMPLETED = "completed"
@@ -158,6 +159,12 @@ class RunStatus(StrEnum):
     AGENT_CRASH = "agent_crash"
     RESET_ERROR = "reset_error"
     ENVIRONMENT_ERROR = "environment_error"
+
+
+class AttemptOrigin(StrEnum):
+    NONE = "none"
+    CODEX_PROCESS = "codex_process"
+    SYNTHETIC_FIXTURE = "synthetic_fixture"
 
 
 class RunRecord(BaseModel):
@@ -168,6 +175,8 @@ class RunRecord(BaseModel):
     workspace_path: str
     simulator_database_path: str | None = None
     agent_attempted: bool = False
+    attempt_origin: AttemptOrigin = AttemptOrigin.NONE
+    model_executed: bool | None = None
     codex_events: list[dict[str, Any]] = Field(default_factory=list)
     error: str = ""
     started_at: datetime = Field(default_factory=utc_now)

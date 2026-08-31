@@ -348,11 +348,12 @@ def create_app(services: Services) -> FastAPI:
 
     @app.post("/api/runs/{run_id}/execute", status_code=status.HTTP_202_ACCEPTED)
     async def execute_run(run_id: UUID, background_tasks: BackgroundTasks) -> dict[str, Any]:
-        run = services.store.get_run(run_id)
+        run = services.store.claim_ready_run(run_id)
         if run is None:
-            raise HTTPException(404, "run not found")
-        if run.status != RunStatus.READY:
-            raise HTTPException(409, f"run cannot start from status {run.status}")
+            current = services.store.get_run(run_id)
+            if current is None:
+                raise HTTPException(404, "run not found")
+            raise HTTPException(409, f"run cannot start from status {current.status}")
         background_tasks.add_task(execute_and_score, run_id)
         return {"accepted": True, "run_id": str(run_id)}
 

@@ -63,7 +63,7 @@ try {
     [System.IO.File]::WriteAllText((Join-Path $stageRoot "release-source.json"), "$releaseSource`n", [Text.UTF8Encoding]::new($false))
 
     Copy-Item -LiteralPath (Join-Path $script:WefRoot "dist\web") -Destination (Join-Path $stageRoot "dist\web") -Recurse -Force
-    $stagedSchemaDirectory = Join-Path $stageRoot ".runtime-deps\runcase-interchange\0.1.1\schemas"
+    $stagedSchemaDirectory = Join-Path $stageRoot ".runtime-deps\runcase-interchange\0.1.2\schemas"
     New-Item -ItemType Directory -Path $stagedSchemaDirectory -Force | Out-Null
     foreach ($schema in @("agent.run.v1.schema.json", "workflow.case.v1.schema.json", "workflow.score.v1.schema.json")) {
       Copy-Item -LiteralPath (Join-Path $schemaDirectory $schema) -Destination (Join-Path $stagedSchemaDirectory $schema) -Force
@@ -74,10 +74,10 @@ try {
     }
     $dependencyManifest = [ordered]@{
       name = "runcase-interchange"
-      version = "0.1.1"
-      commit = "f4949e9e65cb7948a03e1d8bfe19dc915db31fd2"
+      version = "0.1.2"
+      commit = "462fa2fa7cdaa8f58cd4c1dcc9cf778e1d2d0073"
       source = "https://github.com/rrrrrredy/runcase-interchange"
-      release = "https://github.com/rrrrrredy/runcase-interchange/releases/tag/v0.1.1"
+      release = "https://github.com/rrrrrredy/runcase-interchange/releases/tag/v0.1.2"
       files = $schemaHashes
     } | ConvertTo-Json -Depth 4
     [System.IO.File]::WriteAllText((Join-Path $stageRoot ".runtime-deps\runcase-interchange\dependency.json"), "$dependencyManifest`n")
@@ -96,7 +96,7 @@ try {
       "$folderName/scripts/Acceptance-InstallUninstall.ps1",
       "$folderName/plugins/workflow-environment-factory/.codex-plugin/plugin.json",
       "$folderName/dist/web/index.html",
-      "$folderName/.runtime-deps/runcase-interchange/0.1.1/schemas/workflow.case.v1.schema.json"
+      "$folderName/.runtime-deps/runcase-interchange/0.1.2/schemas/workflow.case.v1.schema.json"
     )) {
       if (-not $listing.Contains($required, [StringComparison]::Ordinal)) {
         throw "Release archive is missing required file: $required"
@@ -128,8 +128,8 @@ try {
     unsupported_platforms = @("macos", "linux")
     protocol_dependency = [ordered]@{
       name = "runcase-interchange"
-      version = "0.1.1"
-      commit = "f4949e9e65cb7948a03e1d8bfe19dc915db31fd2"
+      version = "0.1.2"
+      commit = "462fa2fa7cdaa8f58cd4c1dcc9cf778e1d2d0073"
       schema_sha256 = $protocolHashes
     }
     docker_gate_image = [string]$env:WEF_DOCKER_GATE_IMAGE

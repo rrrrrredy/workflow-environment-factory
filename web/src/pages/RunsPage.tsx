@@ -27,7 +27,7 @@ interface Props {
   onError: (message: string) => void;
 }
 
-const activeStatuses = new Set(["preparing", "running", "validating"]);
+const activeStatuses = new Set(["preparing", "queued", "running", "validating"]);
 
 export function RunsPage({ cases, runs, onChanged, onError }: Props) {
   const runnableCases = useMemo(() => cases.filter((caseRecord) => caseRecord.validation.objective_gate_passed), [cases]);
@@ -124,7 +124,7 @@ export function RunsPage({ cases, runs, onChanged, onError }: Props) {
     try {
       await api.executeRun(runId);
       setDetail((current) =>
-        current ? { ...current, run: { ...current.run, status: "running" }, score: null } : current
+        current ? { ...current, run: { ...current.run, status: "queued" }, score: null } : current
       );
       await onChanged();
     } catch (reason) {
@@ -309,13 +309,23 @@ export function RunsPage({ cases, runs, onChanged, onError }: Props) {
                   </div>
                 ) : null}
 
+                {detail.run.attempt_origin === "synthetic_fixture" ? (
+                  <div className="run-error">
+                    <ShieldAlert size={17} />
+                    <div>
+                      <strong>Synthetic product fixture</strong>
+                      <span>This Run exercises reset and scoring only. No model or Codex process was executed.</span>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="run-actions">
                   {detail.run.status === "ready" ? (
                     <Button busy={busy === "execute"} onClick={() => void execute()}>
                       <Bot size={16} /> Execute with Codex
                     </Button>
                   ) : null}
-                  {detail.run.status === "completed" && detail.run.agent_attempted && !detail.score ? (
+                  {detail.run.status === "completed" && detail.run.attempt_origin === "codex_process" && !detail.score ? (
                     <Button
                       tone="secondary"
                       busy={busy === "score"}
@@ -377,7 +387,11 @@ export function RunsPage({ cases, runs, onChanged, onError }: Props) {
                         </div>
                       )}
                     </div>
-                    <p className="single-run-note">Single-run evidence: this result describes one attempt, not general Agent quality.</p>
+                    <p className="single-run-note">
+                      {detail.run.attempt_origin === "synthetic_fixture"
+                        ? "Synthetic fixture evidence: reset and validators ran; no model was executed."
+                        : "Single-run evidence: this result describes one process attempt, not general Agent quality."}
+                    </p>
                     <div className="score-export">
                       <Button tone="quiet" busy={busy === "export-score"} onClick={() => void exportScore()}>
                         <Download size={15} /> Export workflow.score.v1

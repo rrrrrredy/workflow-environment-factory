@@ -9,7 +9,7 @@ from uuid import UUID
 
 from .app_server_preflight import CodexWorkspacePreflight
 from .gitops import GitWorkspaceManager
-from .models import BlueprintKind, RunStatus, utc_now
+from .models import AttemptOrigin, BlueprintKind, RunStatus, utc_now
 from .redaction import redact
 from .store import FactoryStore
 
@@ -157,7 +157,11 @@ class CodexRunner:
         run = self.store.get_run(run_id)
         if run is None:
             raise KeyError("run not found")
-        if run.status != RunStatus.READY:
+        if run.status == RunStatus.READY:
+            run = self.store.claim_ready_run(run_id)
+            if run is None:
+                raise ValueError("run was already claimed by another executor")
+        if run.status != RunStatus.QUEUED:
             raise ValueError(f"run cannot start from status {run.status}")
         case = self.store.get_case(run.case_id)
         if case is None:
@@ -216,6 +220,8 @@ class CodexRunner:
                 creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
             )
             run.agent_attempted = True
+            run.attempt_origin = AttemptOrigin.CODEX_PROCESS
+            run.model_executed = None
             self.store.save_run(run)
             stdout, stderr = process.communicate(timeout=blueprint.payload.timeout_ms / 1_000)
             for line in stdout.splitlines():

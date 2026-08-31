@@ -4,10 +4,12 @@ All notable user-visible changes are documented here. The project follows Semant
 
 ## [Unreleased]
 
+- Runs now use an atomic `ready` to `queued` claim and serialized SQLite access, preventing duplicate Agent launches from concurrent execute requests; scoring is also serialized per Run and keeps one immutable result.
+- Run evidence distinguishes real Codex processes from synthetic product fixtures. Synthetic Scores and UI state explicitly record `model_executed: false`, and the production scoring endpoint rejects unscored synthetic Runs.
 - A Score now requires retained evidence that the Codex process started, rejects a merely prepared workspace, and has one deterministic immutable head per Run even when an older database contains duplicate historical rows.
 - Docker verification mounts the Agent workspace read-only; every verifier also receives before/after workspace fingerprints, and any mutation produces `validator_error` plus `not_scored` instead of a task result.
 - The installer refuses a foreign same-name Startup shortcut; inspection reports the collision, and uninstall removes only a shortcut carrying this product's ownership marker.
-- RunCase Interchange is pinned to v0.1.1 by exact commit and canonical-LF schema hashes across Windows/Linux checkouts, closing portable-path traversal; protocol-import errors now identify the schema before the detailed validation message.
+- RunCase Interchange is pinned to v0.1.2 by exact commit and canonical-LF schema hashes across Windows/Linux checkouts, rejecting Windows drive-relative paths as well as absolute and traversing paths; protocol-import errors identify the schema before the detailed validation message.
 - Release documentation now distinguishes exact Python version constraints from an artifact-hash lock, and the nested synthetic UI probe allows the documented slow-start window.
 - Cross-platform checks now skip the Windows-only COM shortcut fixture outside Windows, while synthetic UI and Docker score fixtures carry an explicit no-model provenance event instead of relying on a merely prepared Run.
 - Windows archive lifecycle CI now uses and records a narrow Docker command stub while the separate Ubuntu job retains the real Docker task gates; the evidence no longer implies same-host Docker Desktop acceptance.

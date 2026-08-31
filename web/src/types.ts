@@ -2,6 +2,7 @@ export type BlueprintKind = "code" | "issue_pr";
 export type RunStatus =
   | "preparing"
   | "ready"
+  | "queued"
   | "running"
   | "validating"
   | "completed"
@@ -148,6 +149,8 @@ export interface RunRecord {
   workspace_path: string;
   simulator_database_path: string | null;
   agent_attempted: boolean;
+  attempt_origin: "none" | "codex_process" | "synthetic_fixture";
+  model_executed: boolean | null;
   codex_events: Array<Record<string, unknown>>;
   error: string;
   started_at: string;

@@ -230,7 +230,7 @@ function Remove-WefDataRootCreatedByFailedInstall([string]$DataDir) {
 }
 
 function Get-WefProtocolDir {
-  return Join-Path $script:WefRoot ".runtime-deps\runcase-interchange\0.1.1\schemas"
+  return Join-Path $script:WefRoot ".runtime-deps\runcase-interchange\0.1.2\schemas"
 }
 
 function Get-WefHealth([int]$Port) {

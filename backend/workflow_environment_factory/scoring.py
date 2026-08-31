@@ -3,6 +3,7 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 import json
+import threading
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -11,7 +12,7 @@ from uuid import UUID, uuid4
 from .content_store import ContentStore
 from .engine import ExecutionEngine, ProcessResult
 from .gitops import GitWorkspaceManager
-from .models import BlueprintKind, RunStatus
+from .models import AttemptOrigin, BlueprintKind, RunStatus
 from .protocol import ProtocolValidator
 from .redaction import redact
 from .simulator import IssuePrSimulator
@@ -48,8 +49,17 @@ class ScoreService:
         self.git = git
         self.engine = engine
         self.simulator = simulator or IssuePrSimulator()
+        self._score_locks_guard = threading.Lock()
+        self._score_locks: dict[str, threading.Lock] = {}
 
-    def score(self, run_id: UUID | str) -> dict[str, Any]:
+    def score(self, run_id: UUID | str, *, allow_synthetic_fixture: bool = False) -> dict[str, Any]:
+        key = str(run_id)
+        with self._score_locks_guard:
+            run_lock = self._score_locks.setdefault(key, threading.Lock())
+        with run_lock:
+            return self._score_locked(run_id, allow_synthetic_fixture=allow_synthetic_fixture)
+
+    def _score_locked(self, run_id: UUID | str, *, allow_synthetic_fixture: bool) -> dict[str, Any]:
         existing = self.store.get_score_for_run(run_id)
         if existing is not None:
             return existing
@@ -60,6 +70,15 @@ class ScoreService:
             raise ValueError(f"run cannot be scored from status {run.status}")
         if not run.agent_attempted:
             raise ValueError("run has no retained evidence that the Codex runner started an attempt")
+        if run.attempt_origin == AttemptOrigin.SYNTHETIC_FIXTURE and not allow_synthetic_fixture:
+            raise ValueError("synthetic fixture Runs cannot be scored through the production scoring path")
+        if run.attempt_origin not in {AttemptOrigin.CODEX_PROCESS, AttemptOrigin.SYNTHETIC_FIXTURE}:
+            raise ValueError("run attempt origin is missing or ambiguous")
+        attempt_note = (
+            "Synthetic fixture evidence only; no model was executed."
+            if run.attempt_origin == AttemptOrigin.SYNTHETIC_FIXTURE
+            else "This record represents one Codex process attempt; model execution was not independently inferred."
+        )
         case = self.store.get_case(run.case_id)
         if case is None:
             raise KeyError("case not found")
@@ -102,10 +121,16 @@ class ScoreService:
                 "nondeterminism": {
                     "sample_count": 1,
                     "single_run_evidence": True,
-                    "notes": ["This record represents one interrupted Codex attempt; no task score was inferred."],
+                    "notes": [f"{attempt_note} No task score was inferred from the interrupted run."],
                 },
                 "summary": "Agent execution ended before validation; the task was not scored.",
-                "extensions": {"workflow_environment_factory": {"engine": self.engine.name}},
+                "extensions": {
+                    "workflow_environment_factory": {
+                        "engine": self.engine.name,
+                        "attempt_origin": run.attempt_origin.value,
+                        "model_executed": run.model_executed,
+                    }
+                },
             }
             self.protocol.validate(score)
             run.completed_at = completed
@@ -306,7 +331,7 @@ class ScoreService:
             "nondeterminism": {
                 "sample_count": 1,
                 "single_run_evidence": True,
-                "notes": ["This score represents one Codex attempt on one freshly reset Case."],
+                "notes": [f"{attempt_note} This score covers one freshly reset Case."],
             },
             "summary": "Task passed every required objective validator."
             if task_result["status"] == "pass"
@@ -314,6 +339,8 @@ class ScoreService:
             "extensions": {
                 "workflow_environment_factory": {
                     "engine": self.engine.name,
+                    "attempt_origin": run.attempt_origin.value,
+                    "model_executed": run.model_executed,
                     "verifier_output_ref": self.content_store.put_json(
                         redact({"stdout": verifier.stdout, "stderr": verifier.stderr, "exit_code": verifier.exit_code})
                     ),

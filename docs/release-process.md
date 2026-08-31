@@ -4,7 +4,7 @@ A source build is not a release. The 0.1.0 `v*` tag produces only a GitHub prere
 
 ## Fixed inputs
 
-- RunCase Interchange: commit `f4949e9e65cb7948a03e1d8bfe19dc915db31fd2` from tag `v0.1.1`, with per-schema SHA-256 verification.
+- RunCase Interchange: commit `462fa2fa7cdaa8f58cd4c1dcc9cf778e1d2d0073` from tag `v0.1.2`, with per-schema SHA-256 verification.
 - Node.js: 22.23.2 in CI and release jobs.
 - Python: 3.13.13 for Windows product/archive jobs; 3.11.16 for Ubuntu build jobs and the Docker gate image.
 - Codex CLI used by `doctor`: `0.150.0-alpha.8`.

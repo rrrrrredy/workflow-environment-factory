@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from collections.abc import Iterable
+from functools import wraps
 from pathlib import Path
 from typing import Any, TypeVar
 from uuid import UUID
@@ -14,16 +16,28 @@ from .models import BlueprintRecord, CaseRecord, ProtocolDocumentRecord, Recordi
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
+def _serialized(method):
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapped
+
+
 class FactoryStore:
     def __init__(self, database_path: Path):
         database_path.parent.mkdir(parents=True, exist_ok=True)
         self.database_path = database_path
+        self._lock = threading.RLock()
         self.connection = sqlite3.connect(database_path, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
+        self.connection.execute("PRAGMA busy_timeout=5000")
         self.connection.execute("PRAGMA journal_mode=WAL")
         self.connection.execute("PRAGMA foreign_keys=ON")
         self._migrate()
 
+    @_serialized
     def _migrate(self) -> None:
         self.connection.executescript(
             """
@@ -86,6 +100,7 @@ class FactoryStore:
                 )
         self.connection.commit()
 
+    @_serialized
     def close(self) -> None:
         self.connection.close()
 
@@ -99,6 +114,7 @@ class FactoryStore:
     def _load(row: sqlite3.Row | None, model_type: type[ModelT]) -> ModelT | None:
         return None if row is None else model_type.model_validate_json(row["payload_json"])
 
+    @_serialized
     def save_blueprint(self, record: BlueprintRecord) -> BlueprintRecord:
         self.connection.execute(
             "INSERT INTO blueprints(id, payload_json, created_at) VALUES (?, ?, ?)",
@@ -107,16 +123,19 @@ class FactoryStore:
         self.connection.commit()
         return record
 
+    @_serialized
     def get_blueprint(self, blueprint_id: UUID | str) -> BlueprintRecord | None:
         row = self.connection.execute(
             "SELECT payload_json FROM blueprints WHERE id = ?", (str(blueprint_id),)
         ).fetchone()
         return self._load(row, BlueprintRecord)
 
+    @_serialized
     def list_blueprints(self) -> list[BlueprintRecord]:
         rows = self.connection.execute("SELECT payload_json FROM blueprints ORDER BY created_at DESC").fetchall()
         return [BlueprintRecord.model_validate_json(row["payload_json"]) for row in rows]
 
+    @_serialized
     def save_cases(self, cases: Iterable[CaseRecord]) -> list[CaseRecord]:
         values = list(cases)
         with self.connection:
@@ -134,10 +153,12 @@ class FactoryStore:
                 )
         return values
 
+    @_serialized
     def get_case(self, case_id: UUID | str) -> CaseRecord | None:
         row = self.connection.execute("SELECT payload_json FROM cases WHERE id = ?", (str(case_id),)).fetchone()
         return self._load(row, CaseRecord)
 
+    @_serialized
     def list_cases(self, blueprint_id: UUID | str | None = None) -> list[CaseRecord]:
         if blueprint_id is None:
             rows = self.connection.execute(
@@ -150,6 +171,7 @@ class FactoryStore:
             ).fetchall()
         return [CaseRecord.model_validate_json(row["payload_json"]) for row in rows]
 
+    @_serialized
     def save_run(self, record: RunRecord) -> RunRecord:
         self.connection.execute(
             "INSERT INTO runs(id, case_id, payload_json, created_at) VALUES (?, ?, ?, ?) "
@@ -160,19 +182,28 @@ class FactoryStore:
         self.connection.commit()
         return record
 
+    @_serialized
     def get_run(self, run_id: UUID | str) -> RunRecord | None:
         row = self.connection.execute("SELECT payload_json FROM runs WHERE id = ?", (str(run_id),)).fetchone()
         return self._load(row, RunRecord)
 
+    @_serialized
     def list_runs(self) -> list[RunRecord]:
         rows = self.connection.execute("SELECT payload_json FROM runs ORDER BY created_at DESC").fetchall()
         return [RunRecord.model_validate_json(row["payload_json"]) for row in rows]
 
+    @_serialized
     def save_score(self, score: dict[str, Any]) -> dict[str, Any]:
-        existing = self.get_score_for_run(score["run_id"])
-        if existing is not None:
-            return existing
-        with self.connection:
+        self.connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self.connection.execute(
+                "SELECT scores.payload_json FROM score_heads "
+                "JOIN scores ON scores.id = score_heads.score_id WHERE score_heads.run_id = ?",
+                (score["run_id"],),
+            ).fetchone()
+            if row is not None:
+                self.connection.commit()
+                return json.loads(row["payload_json"])
             self.connection.execute(
                 "INSERT INTO scores(id, run_id, payload_json, created_at) VALUES (?, ?, ?, ?)",
                 (score["score_id"], score["run_id"], self._json(score), score["created_at"]),
@@ -181,8 +212,20 @@ class FactoryStore:
                 "INSERT INTO score_heads(run_id, score_id) VALUES (?, ?)",
                 (score["run_id"], score["score_id"]),
             )
-        return score
+            self.connection.commit()
+            return score
+        except Exception:
+            self.connection.rollback()
+            row = self.connection.execute(
+                "SELECT scores.payload_json FROM score_heads "
+                "JOIN scores ON scores.id = score_heads.score_id WHERE score_heads.run_id = ?",
+                (score["run_id"],),
+            ).fetchone()
+            if row is not None:
+                return json.loads(row["payload_json"])
+            raise
 
+    @_serialized
     def get_score_for_run(self, run_id: UUID | str) -> dict[str, Any] | None:
         row = self.connection.execute(
             "SELECT scores.payload_json FROM score_heads "
@@ -191,6 +234,7 @@ class FactoryStore:
         ).fetchone()
         return None if row is None else json.loads(row["payload_json"])
 
+    @_serialized
     def save_recording(self, recording: RecordingRecord) -> RecordingRecord:
         self.connection.execute(
             "INSERT OR REPLACE INTO recordings(id, payload_json, created_at) VALUES (?, ?, ?)",
@@ -199,16 +243,19 @@ class FactoryStore:
         self.connection.commit()
         return recording
 
+    @_serialized
     def get_recording(self, recording_id: UUID | str) -> RecordingRecord | None:
         row = self.connection.execute(
             "SELECT payload_json FROM recordings WHERE id = ?", (str(recording_id),)
         ).fetchone()
         return self._load(row, RecordingRecord)
 
+    @_serialized
     def list_recordings(self) -> list[RecordingRecord]:
         rows = self.connection.execute("SELECT payload_json FROM recordings ORDER BY created_at DESC").fetchall()
         return [RecordingRecord.model_validate_json(row["payload_json"]) for row in rows]
 
+    @_serialized
     def save_protocol_document(self, record: ProtocolDocumentRecord) -> ProtocolDocumentRecord:
         existing = self.connection.execute(
             "SELECT payload_json FROM protocol_documents WHERE digest = ?", (record.digest,)
@@ -230,22 +277,44 @@ class FactoryStore:
         self.connection.commit()
         return record
 
+    @_serialized
     def list_protocol_documents(self) -> list[ProtocolDocumentRecord]:
         rows = self.connection.execute(
             "SELECT payload_json FROM protocol_documents ORDER BY imported_at DESC"
         ).fetchall()
         return [ProtocolDocumentRecord.model_validate_json(row["payload_json"]) for row in rows]
 
+    @_serialized
     def get_protocol_document(self, document_id: UUID | str) -> ProtocolDocumentRecord | None:
         row = self.connection.execute(
             "SELECT payload_json FROM protocol_documents WHERE id = ?", (str(document_id),)
         ).fetchone()
         return self._load(row, ProtocolDocumentRecord)
 
+    @_serialized
+    def claim_ready_run(self, run_id: UUID | str) -> RunRecord | None:
+        row = self.connection.execute(
+            "SELECT payload_json FROM runs WHERE id = ?", (str(run_id),)
+        ).fetchone()
+        if row is None:
+            return None
+        run = RunRecord.model_validate_json(row["payload_json"])
+        if run.status != RunStatus.READY:
+            return None
+        previous_payload = row["payload_json"]
+        run.status = RunStatus.QUEUED
+        with self.connection:
+            cursor = self.connection.execute(
+                "UPDATE runs SET payload_json = ? WHERE id = ? AND payload_json = ?",
+                (self._json(run), str(run_id), previous_payload),
+            )
+        return run if cursor.rowcount == 1 else None
+
+    @_serialized
     def recover_interrupted_runs(self) -> list[RunRecord]:
         recovered: list[RunRecord] = []
         for run in self.list_runs():
-            if run.status.value in {"preparing", "running", "validating"}:
+            if run.status.value in {"preparing", "queued", "running", "validating"}:
                 run.status = RunStatus.ENVIRONMENT_ERROR
                 run.error = "The factory restarted before this Run reached a terminal state."
                 recovered.append(self.save_run(run))
