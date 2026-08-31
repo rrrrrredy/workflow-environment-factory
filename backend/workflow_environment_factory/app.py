@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -118,7 +119,12 @@ def create_app(services: Services) -> FastAPI:
 
     @app.get("/health")
     async def health() -> dict[str, Any]:
-        return {"ok": True, "product": "workflow-environment-factory", "version": "0.2.0"}
+        return {
+            "ok": True,
+            "product": "workflow-environment-factory",
+            "version": "0.2.0",
+            "instance_id": os.getenv("WEF_PROCESS_TOKEN"),
+        }
 
     @app.get("/session/{token}")
     async def establish_session(token: str) -> RedirectResponse:

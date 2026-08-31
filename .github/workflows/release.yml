@@ -20,23 +20,23 @@ jobs:
           if ("${{ github.event.repository.visibility }}" -ne "public") {
             throw "Publish the reviewed repository and enable public protections before pushing a release tag; GitHub cannot attest a private personal repository."
           }
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           path: product
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: rrrrrredy/runcase-interchange
           ref: 462fa2fa7cdaa8f58cd4c1dcc9cf778e1d2d0073
           path: protocol
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '22.23.2'
           cache: npm
           cache-dependency-path: product/package-lock.json
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.11.16'
           cache: pip
@@ -63,7 +63,7 @@ jobs:
           npx playwright install --with-deps chromium
           npm run probe:ui
       - name: Upload release candidate
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: factory-release-candidate
           path: candidate
@@ -73,16 +73,16 @@ jobs:
     needs: build
     runs-on: windows-2025
     steps:
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '22.23.2'
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.13.13'
       - name: Install pinned Codex CLI for archive lifecycle acceptance
         shell: pwsh
         run: npm install --global @openai/codex@0.151.0
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: factory-release-candidate
           path: ${{ runner.temp }}\factory-release
@@ -102,7 +102,7 @@ jobs:
           $evidencePath = Join-Path $env:RUNNER_TEMP "factory-installation-evidence.json"
           & (Join-Path $releaseRoot "scripts\Acceptance-InstallUninstall.ps1") -UseDockerStub -EvidencePath $evidencePath
           $readIsolationPath = Join-Path $env:RUNNER_TEMP "factory-windows-read-isolation.json"
-          & (Join-Path $releaseRoot ".venv\Scripts\python.exe") (Join-Path $releaseRoot "spikes\codex_read_isolation_gate.py") --codex codex --evidence $readIsolationPath
+          & (Join-Path $releaseRoot ".venv\Scripts\python.exe") (Join-Path $releaseRoot "spikes\codex_read_isolation_gate.py") --codex codex --allow-known-windows-unsupported --evidence $readIsolationPath
           $evidence = Get-Content -LiteralPath $evidencePath -Raw | ConvertFrom-Json
           if ($evidence.schema_version -ne "product.installation-acceptance.v3") { throw "Unsupported installation evidence schema." }
           if ($evidence.source_kind -ne "release_archive") { throw "Acceptance did not run from the release archive." }
@@ -131,7 +131,7 @@ jobs:
             $property = $evidence.checks.PSObject.Properties[$check]
             if ($null -eq $property -or -not [bool]$property.Value) { throw "Installation evidence failed or omitted: $check" }
           }
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: factory-installation-evidence
           path: |
@@ -154,15 +154,15 @@ jobs:
             skip_docker: '1'
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '22.23.2'
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.13.13'
       - name: Install pinned Codex CLI
         run: npm install --global @openai/codex@0.151.0
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: factory-release-candidate
           path: ${{ runner.temp }}/candidate
@@ -188,7 +188,7 @@ jobs:
           mv "$WEF_PORTABLE_EVIDENCE_DIR/running.json" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-running.json"
           mv "$WEF_PORTABLE_EVIDENCE_DIR/absent.json" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-absent.json"
           mv "$WEF_PORTABLE_EVIDENCE_DIR/uninstall.txt" "$WEF_PORTABLE_EVIDENCE_DIR/factory-${{ matrix.platform }}-uninstall.txt"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: factory-${{ matrix.platform }}-archive-evidence
           path: ${{ runner.temp }}/factory-portable-evidence
@@ -202,28 +202,28 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           path: product
           persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: factory-release-candidate
           path: artifacts
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: factory-installation-evidence
           path: artifacts
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: factory-linux-archive-evidence
           path: artifacts
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: factory-macos-archive-evidence
           path: artifacts
       - name: Attest release archive
-        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        uses: actions/attest-build-provenance@8beda2b7ed98355c0e97c0a63bec38ae472e66c4 # v4
         with:
           subject-path: |
             artifacts/*.zip

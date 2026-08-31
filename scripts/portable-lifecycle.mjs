@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 
@@ -22,6 +22,7 @@ const product = "workflow-environment-factory";
 const displayName = "Workflow Environment Factory";
 const markerName = ".workflow-environment-factory-data.json";
 const serviceName = "portable-service.json";
+const receiptName = ".workflow-environment-factory-installation.json";
 const pluginSelector = "workflow-environment-factory@workflow-environment-factory";
 const marketplaceName = "workflow-environment-factory";
 const defaultPort = 43121;
@@ -187,7 +188,15 @@ function assertSafeDataPath(requested) {
   if (dataDir === "/" || dataDir === home || dataDir.length < 8) {
     fail(`Refusing to use an unsafe ${displayName} data path: ${dataDir}`);
   }
+  if (pathWithin(dataDir, repositoryRoot) || pathWithin(repositoryRoot, dataDir)) {
+    fail(`Refusing a data path that overlaps the ${displayName} source checkout: ${dataDir}`);
+  }
   return dataDir;
+}
+
+function pathWithin(candidate, parent) {
+  const value = relative(parent, candidate);
+  return value === "" || (!value.startsWith("..") && !isAbsolute(value));
 }
 
 function markerPath(dataDir) {
@@ -236,6 +245,44 @@ function initializeDataRoot(requested) {
 function removeOwnedDataRoot(requested) {
   const dataDir = assertDataRoot(requested);
   rmSync(dataDir, { recursive: true, force: false });
+}
+
+function receiptPath(dataDir) {
+  return join(dataDir, receiptName);
+}
+
+function writeInstallationReceipt(dataDir, marketplaceSource) {
+  const source = resolve(marketplaceSource);
+  const pluginPath = resolve(source, "plugins", product);
+  const manifest = JSON.parse(readFileSync(join(pluginPath, ".codex-plugin", "plugin.json"), "utf8"));
+  const receipt = {
+    schema_version: "product.installation-ownership.v1",
+    product,
+    marketplace_name: marketplaceName,
+    marketplace_source: source,
+    plugin_selector: pluginSelector,
+    plugin_path: pluginPath,
+    plugin_version: String(manifest.version),
+    recorded_at: new Date().toISOString()
+  };
+  writeFileSync(receiptPath(dataDir), `${JSON.stringify(receipt, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  return receipt;
+}
+
+function readInstallationReceipt(dataDir) {
+  const path = receiptPath(dataDir);
+  if (!existsSync(path)) return null;
+  if (lstatSync(path).isSymbolicLink()) fail(`${displayName} installation receipt cannot be a symbolic link: ${path}`);
+  let receipt;
+  try {
+    receipt = JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    fail(`${displayName} installation receipt is invalid: ${path}`);
+  }
+  if (receipt?.schema_version !== "product.installation-ownership.v1" || receipt?.product !== product) {
+    fail(`${displayName} installation receipt names another product: ${path}`);
+  }
+  return receipt;
 }
 
 function servicePath(dataDir) {
@@ -348,14 +395,19 @@ async function startService(options) {
   if (!existsSync(server)) fail("Portable Python environment is missing. Run Install.sh first.");
   const { dataDir } = initializeDataRoot(options.dataDir);
   const currentHealth = await health(options.port);
+  const existingRecord = readService(dataDir);
   if (currentHealth) {
     if (currentHealth.product !== product) fail(`Port ${options.port} is already serving another application.`);
+    if (!existingRecord) fail(`A ${displayName} service is reachable, but this data directory has no owned portable service record.`);
+    if (existingRecord.port !== options.port || currentHealth.instance_id !== existingRecord.process_token) {
+      fail(`The reachable ${displayName} service did not prove ownership by this checkout and data directory.`);
+    }
+    assertOwnedProcess(existingRecord);
     const url = sessionUrl(dataDir, options.port);
     process.stdout.write(`${displayName} is already running.\n${url ?? ""}\n`);
     if (options.open && url) openUrl(url);
     return false;
   }
-  const existingRecord = readService(dataDir);
   if (existingRecord && processAlive(existingRecord.pid)) {
     assertOwnedProcess(existingRecord);
     fail(`Owned process ${existingRecord.pid} is running but did not answer its recorded health endpoint.`);
@@ -396,7 +448,10 @@ async function startService(options) {
     started_at: new Date().toISOString()
   };
   writeFileSync(servicePath(dataDir), `${JSON.stringify(record, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
-  const ready = await waitFor(async () => (await health(options.port))?.product === product, 20_000);
+  const ready = await waitFor(async () => {
+    const current = await health(options.port);
+    return current?.product === product && current?.instance_id === processToken;
+  }, 20_000);
   if (!ready) {
     if (processAlive(child.pid)) process.kill(child.pid, "SIGTERM");
     rmSync(servicePath(dataDir), { force: true });
@@ -440,24 +495,35 @@ function codexState(required = true) {
   const codex = commandPath("codex");
   if (!codex) {
     if (required) fail("Codex CLI is required and was not found on PATH.");
-    return { codex: "", pluginInstalled: null, marketplaceRegistered: null, errors: ["Codex CLI was not found."] };
+    return {
+      codex: "",
+      pluginInstalled: null,
+      marketplaceRegistered: null,
+      pluginRecord: null,
+      marketplaceRecord: null,
+      errors: ["Codex CLI was not found."]
+    };
   }
   const errors = [];
   let pluginInstalled = null;
   let marketplaceRegistered = null;
+  let pluginRecord = null;
+  let marketplaceRecord = null;
   try {
     const listing = run(codex, ["plugin", "list"], { capture: true });
-    pluginInstalled = pluginListingContains(listing, pluginSelector);
+    pluginRecord = pluginListingRecord(listing, pluginSelector);
+    pluginInstalled = pluginRecord !== null;
   } catch (error) {
     errors.push(`plugin state: ${error.message}`);
   }
   try {
     const listing = run(codex, ["plugin", "marketplace", "list"], { capture: true });
-    marketplaceRegistered = marketplaceListingContains(listing, marketplaceName);
+    marketplaceRecord = marketplaceListingRecord(listing, marketplaceName);
+    marketplaceRegistered = marketplaceRecord !== null;
   } catch (error) {
     errors.push(`marketplace state: ${error.message}`);
   }
-  return { codex, pluginInstalled, marketplaceRegistered, errors };
+  return { codex, pluginInstalled, marketplaceRegistered, pluginRecord, marketplaceRecord, errors };
 }
 
 function escapeRegex(value) {
@@ -465,11 +531,37 @@ function escapeRegex(value) {
 }
 
 function pluginListingContains(listing, selector) {
-  return new RegExp(`^\\s*${escapeRegex(selector)}\\s+installed(?:,|\\s|$)`, "m").test(listing);
+  return pluginListingRecord(listing, selector) !== null;
 }
 
 function marketplaceListingContains(listing, name) {
-  return new RegExp(`^\\s*${escapeRegex(name)}(?:\\s+|$)`, "m").test(listing);
+  return marketplaceListingRecord(listing, name) !== null;
+}
+
+function pluginListingRecord(listing, selector) {
+  const match = listing.match(
+    new RegExp(`^\\s*${escapeRegex(selector)}\\s+installed(?:,\\s*[a-z]+)*\\s+(\\S+)\\s+(.+?)\\s*$`, "m")
+  );
+  return match ? { selector, version: match[1], path: resolve(match[2]) } : null;
+}
+
+function marketplaceListingRecord(listing, name) {
+  const match = listing.match(new RegExp(`^\\s*${escapeRegex(name)}\\s+(.+?)\\s*$`, "m"));
+  return match ? { name, root: resolve(match[1]) } : null;
+}
+
+function assertCodexOwnership(state, source, expectedVersion) {
+  const expectedSource = resolve(source);
+  const expectedPlugin = resolve(expectedSource, "plugins", product);
+  if (state.marketplaceRecord && state.marketplaceRecord.root !== expectedSource) {
+    fail(`A foreign Codex marketplace already uses ${marketplaceName}; it was not changed.`);
+  }
+  if (
+    state.pluginRecord &&
+    (state.pluginRecord.path !== expectedPlugin || state.pluginRecord.version !== expectedVersion)
+  ) {
+    fail(`A foreign or different-version Codex plugin already uses ${pluginSelector}; it was not changed.`);
+  }
 }
 
 async function install(options) {
@@ -504,6 +596,11 @@ async function install(options) {
     );
   }
   const data = initializeDataRoot(options.dataDir);
+  const expectedManifest = JSON.parse(
+    readFileSync(resolve(options.marketplaceSource, "plugins", product, ".codex-plugin", "plugin.json"), "utf8")
+  );
+  const expectedVersion = String(expectedManifest.version);
+  assertCodexOwnership(codex, options.marketplaceSource, expectedVersion);
   let marketplaceAdded = false;
   let pluginAdded = false;
   let serviceStarted = false;
@@ -517,8 +614,10 @@ async function install(options) {
       pluginAdded = true;
     }
     const installed = codexState(true);
+    assertCodexOwnership(installed, options.marketplaceSource, expectedVersion);
     if (!installed.marketplaceRegistered || !installed.pluginInstalled) fail("Codex did not retain the marketplace and plugin registration.");
     if (!options.noStart) serviceStarted = await startService(options);
+    writeInstallationReceipt(data.dataDir, options.marketplaceSource);
     process.stdout.write(`${displayName} is installed. Restart Codex to load its simulator MCP tools and Skill.\n`);
   } catch (error) {
     if (serviceStarted) await stopService(options).catch(() => {});
@@ -583,9 +682,23 @@ async function inspect(options) {
 
 async function uninstall(options) {
   requirePortablePlatform();
-  await stopService(options).catch((error) => process.stderr.write(`Service stop needs attention: ${error.message}\n`));
+  await stopService(options);
   const codex = codexState(false);
   if (codex.codex) {
+    const receipt = existsSync(options.dataDir) ? readInstallationReceipt(assertDataRoot(options.dataDir)) : null;
+    if ((codex.pluginRecord || codex.marketplaceRecord) && !receipt) {
+      fail("Codex registrations exist, but this data root has no ownership receipt; they were preserved.");
+    }
+    if (receipt) {
+      assertCodexOwnership(codex, receipt.marketplace_source, String(receipt.plugin_version));
+      if (
+        resolve(receipt.plugin_path) !== resolve(receipt.marketplace_source, "plugins", product) ||
+        receipt.plugin_selector !== pluginSelector ||
+        receipt.marketplace_name !== marketplaceName
+      ) {
+        fail("The installation receipt does not match this product; Codex registrations were preserved.");
+      }
+    }
     if (codex.pluginInstalled) run(codex.codex, ["plugin", "remove", pluginSelector]);
     if (codex.marketplaceRegistered) run(codex.codex, ["plugin", "marketplace", "remove", marketplaceName]);
   }
@@ -629,8 +742,10 @@ export {
   commandOwnsServer,
   initializeDataRoot,
   marketplaceListingContains,
+  marketplaceListingRecord,
   parseArguments,
   pluginListingContains,
+  pluginListingRecord,
   removeOwnedDataRoot
 };
 

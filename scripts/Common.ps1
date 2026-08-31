@@ -64,17 +64,99 @@ function Invoke-WefNpm([string[]]$Arguments) {
   if ($LASTEXITCODE -ne 0) { throw "npm failed with exit code $LASTEXITCODE" }
 }
 
-function Test-WefMarketplacePresent([string]$Listing, [string]$Name) {
+function Get-WefMarketplaceRecord([string]$Listing, [string]$Name) {
   $escaped = [regex]::Escape($Name)
-  return (
-    $Listing -match "(?im)^\s*$escaped(?:\s+|$)" -or
-    $Listing -match "(?im)^\s*Marketplace\s+\W*$escaped\W*$"
-  )
+  foreach ($line in ($Listing -split "\r?\n")) {
+    if ($line -match "^\s*$escaped\s+(.+?)\s*$") {
+      return [pscustomobject]@{
+        name = $Name
+        root = [System.IO.Path]::GetFullPath($Matches[1].Trim()).TrimEnd('\')
+      }
+    }
+  }
+  return $null
+}
+
+function Get-WefPluginRecord([string]$Listing, [string]$Selector) {
+  $escaped = [regex]::Escape($Selector)
+  foreach ($line in ($Listing -split "\r?\n")) {
+    if ($line -match "^\s*$escaped\s+installed(?:,\s*[a-z]+)*\s+(\S+)\s+(.+?)\s*$") {
+      return [pscustomobject]@{
+        selector = $Selector
+        version = $Matches[1]
+        path = [System.IO.Path]::GetFullPath($Matches[2].Trim()).TrimEnd('\')
+      }
+    }
+  }
+  return $null
+}
+
+function Test-WefMarketplacePresent([string]$Listing, [string]$Name) {
+  return $null -ne (Get-WefMarketplaceRecord $Listing $Name)
 }
 
 function Test-WefPluginInstalled([string]$Listing, [string]$Selector) {
-  $escaped = [regex]::Escape($Selector)
-  return $Listing -match "(?im)^\s*$escaped\s+installed(?:,|\s|$)"
+  return $null -ne (Get-WefPluginRecord $Listing $Selector)
+}
+
+function Test-WefSamePath([string]$Left, [string]$Right) {
+  $leftPath = [System.IO.Path]::GetFullPath($Left).TrimEnd('\')
+  $rightPath = [System.IO.Path]::GetFullPath($Right).TrimEnd('\')
+  return $leftPath.Equals($rightPath, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Assert-WefCodexOwnership(
+  $MarketplaceRecord,
+  $PluginRecord,
+  [string]$Source,
+  [string]$PluginPath,
+  [string]$Version
+) {
+  if ($null -ne $MarketplaceRecord -and -not (Test-WefSamePath $MarketplaceRecord.root $Source)) {
+    throw "A foreign Codex marketplace already uses the name workflow-environment-factory at $($MarketplaceRecord.root). It was not changed."
+  }
+  if (
+    $null -ne $PluginRecord -and
+    (-not (Test-WefSamePath $PluginRecord.path $PluginPath) -or [string]$PluginRecord.version -cne $Version)
+  ) {
+    throw "A foreign or different-version Codex plugin already uses workflow-environment-factory. It was not changed."
+  }
+}
+
+function Get-WefInstallationReceiptPath([string]$DataDir) {
+  return Join-Path ([System.IO.Path]::GetFullPath($DataDir)) ".workflow-environment-factory-installation.json"
+}
+
+function Write-WefInstallationReceipt([string]$DataDir, [string]$Source, [string]$PluginPath, [string]$Version) {
+  $receipt = [ordered]@{
+    schema_version = "product.installation-ownership.v1"
+    product = "workflow-environment-factory"
+    marketplace_name = "workflow-environment-factory"
+    marketplace_source = [System.IO.Path]::GetFullPath($Source).TrimEnd('\')
+    plugin_selector = "workflow-environment-factory@workflow-environment-factory"
+    plugin_path = [System.IO.Path]::GetFullPath($PluginPath).TrimEnd('\')
+    plugin_version = $Version
+    recorded_at = [DateTimeOffset]::UtcNow.ToString("o")
+  } | ConvertTo-Json -Depth 4
+  [System.IO.File]::WriteAllText(
+    (Get-WefInstallationReceiptPath $DataDir),
+    "$receipt`n",
+    [Text.UTF8Encoding]::new($false)
+  )
+}
+
+function Read-WefInstallationReceipt([string]$DataDir) {
+  $path = Get-WefInstallationReceiptPath $DataDir
+  if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
+  try { $receipt = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json }
+  catch { throw "Workflow Environment Factory installation receipt is invalid: $path" }
+  if (
+    $receipt.schema_version -ne "product.installation-ownership.v1" -or
+    $receipt.product -ne "workflow-environment-factory"
+  ) {
+    throw "Workflow Environment Factory installation receipt names another product: $path"
+  }
+  return $receipt
 }
 
 function Get-WefStartupShortcutPath {
@@ -173,6 +255,13 @@ function Assert-WefSafeDataPath([string]$DataDir) {
   }
   if ($resolved.Length -lt 12 -or $resolved -eq $root -or $resolved -eq $profile -or $resolved -eq $localAppData -or $resolved -eq $documents) {
     throw "Refusing to use an unsafe Workflow Environment Factory data path: $resolved"
+  }
+  $checkout = [System.IO.Path]::GetFullPath($script:WefRoot).TrimEnd('\')
+  $dataInsideCheckout = $resolved.Equals($checkout, [StringComparison]::OrdinalIgnoreCase) -or
+    $resolved.StartsWith(($checkout + "\"), [StringComparison]::OrdinalIgnoreCase)
+  $checkoutInsideData = $checkout.StartsWith(($resolved + "\"), [StringComparison]::OrdinalIgnoreCase)
+  if ($dataInsideCheckout -or $checkoutInsideData) {
+    throw "Refusing a data path that overlaps the Workflow Environment Factory source checkout: $resolved"
   }
   return $resolved
 }

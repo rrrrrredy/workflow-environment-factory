@@ -4,7 +4,7 @@ Workflow Environment Factory turns your own repository or Issue-to-PR process in
 
 It is not a public benchmark, an environment-outsourcing service, or a dashboard for watching an Agent. The useful output is a task pack you can keep, rerun, inspect, and improve as your repository and workflow change.
 
-> **Release status:** 0.2 technical preview for Codex on Windows 11 x64, Linux x64, and Apple Silicon macOS. Hosted Linux runs the real Docker code and Issue-to-PR gates. Hosted macOS proves the downloadable product lifecycle only; Docker task execution, a physical Mac, an ordinary user-owned clean machine, and an authenticated Codex Run were not tested.
+> **Release status:** 0.2 technical preview. Linux x64 is the current Codex execution target and has hosted real-Docker gates. Windows 11 x64 can install the product and manage or validate Cases, but Codex 0.151.0 currently fails the required native-Windows deny-read preflight, so the Factory stops before any model call instead of executing a Case. Apple Silicon macOS has downloadable-product lifecycle evidence only; Docker task execution, a physical Mac, an ordinary user-owned clean machine, and an authenticated Codex Run were not tested.
 
 ![Workflow Environment Factory Case matrix with fully synthetic data](docs/images/ui-desktop-case-factory-synthetic.png)
 
@@ -48,6 +48,8 @@ Requirements:
 
 Install and start the long-lived service from a normal host terminal: Windows Terminal or PowerShell on Windows, and Bash on Linux/macOS. Do not start it from inside an existing Codex sandbox. Every real Run performs a no-model workspace-sandbox preflight and stops as `environment_error` rather than falling back to unrestricted execution.
 
+> Native Windows Codex Case execution is currently unavailable because Codex cannot apply the deny-read ACL required to hide the Factory database and known-correct source. Installation, Blueprint/Case management, deterministic validators, import/export, and the UI remain usable. The preflight will automatically enable execution when the pinned Codex path can prove isolation; there is no unsafe override.
+
 On Windows, download `workflow-environment-factory-0.2.0-windows-x64.zip` and its `.sha256` file from the same GitHub Release. Verify the archive, extract it, inspect the installer, then run:
 
 ```powershell
@@ -71,7 +73,7 @@ chmod +x scripts/*.sh
 ./scripts/Install.sh --open
 ```
 
-> On macOS, this command installs the plugin and starts the local service. Docker-backed Case generation, execution, and scoring have not been verified on macOS; the release evidence covers that path on hosted Linux only.
+> On macOS, this command installs the plugin and starts the local service. Docker-backed Case generation, execution, and scoring have not been verified on macOS; the release evidence covers that path on hosted Linux only. Treat macOS as a lifecycle preview.
 
 The release contains commit/protocol/Docker-bound manifests and GitHub build-provenance attestations. Each installer creates a project-local Python environment, installs the npm lockfile plus exact Python version constraints, confirms Docker and Codex, registers the extracted checkout as a Codex marketplace, installs the plugin, and starts a loopback-only service. The Python constraints are not a wheel/sdist hash lock. Restart Codex after installation.
 
@@ -96,7 +98,7 @@ See [installation and removal](docs/installation.md) for every state change and 
 4. Create the Blueprint, then generate Cases. Do not run any Case whose evidence gate is blocked.
 5. Inspect provenance, writable paths, validators, and what Codex cannot see. Export the three-Case task pack if you want a portable record.
 6. Prepare a Run. This always creates a new isolated repository snapshot and, for Issue-to-PR, a new SQLite snapshot.
-7. Execute with Codex. The plugin exposes only the active local simulator operations.
+7. On a platform whose no-model isolation preflight passes, execute with Codex. The plugin exposes only the active local simulator operations.
 8. Read the objective Score. Treat a timeout or crash as an execution failure with `not_scored`; treat a workspace preflight or Codex setup failure as `environment_error`. Neither is a failed task.
 9. Remove the Run workspace when finished. The retained Case, Run metadata, and Score stay local.
 

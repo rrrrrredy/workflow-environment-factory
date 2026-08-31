@@ -1,6 +1,12 @@
 . (Join-Path $PSScriptRoot "Common.ps1")
 
-$testRoot = Join-Path $script:WefRoot ".runtime-data\installation-safety-$([Guid]::NewGuid().ToString('N'))"
+$testBase = if (-not [string]::IsNullOrWhiteSpace($env:WEF_TEST_TMP_ROOT)) {
+  [System.IO.Path]::GetFullPath($env:WEF_TEST_TMP_ROOT)
+} else {
+  [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+}
+$testPrefix = Join-Path $testBase "wef-installation-safety-"
+$testRoot = "$testPrefix$([Guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
 try {
   $owned = Join-Path $testRoot "owned"
@@ -48,6 +54,10 @@ try {
   try { Assert-WefSafeDataPath ([System.IO.Path]::GetPathRoot($testRoot)) | Out-Null } catch { $unsafeRejected = $true }
   if (-not $unsafeRejected) { throw "A drive root was accepted as product data." }
 
+  $overlapRejected = $false
+  try { Assert-WefSafeDataPath (Join-Path $script:WefRoot ".runtime-data\forbidden") | Out-Null } catch { $overlapRejected = $true }
+  if (-not $overlapRejected) { throw "A data path inside the source checkout was accepted." }
+
   if ($IsWindows) {
     $shell = New-Object -ComObject WScript.Shell
     $foreignShortcutPath = Join-Path $testRoot "foreign-shortcut.lnk"
@@ -91,8 +101,7 @@ try {
   }
 } finally {
   $resolvedTestRoot = (Resolve-Path -LiteralPath $testRoot).Path
-  $expectedPrefix = Join-Path $script:WefRoot ".runtime-data\installation-safety-"
-  if (-not $resolvedTestRoot.StartsWith($expectedPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+  if (-not $resolvedTestRoot.StartsWith($testPrefix, [StringComparison]::OrdinalIgnoreCase)) {
     throw "Unsafe installation-safety cleanup target: $resolvedTestRoot"
   }
   Remove-Item -LiteralPath $resolvedTestRoot -Recurse -Force

@@ -37,9 +37,16 @@ try {
   [Environment]::SetEnvironmentVariable("WEF_DATA_DIR", $previousDataDir, "Process")
   [Environment]::SetEnvironmentVariable("WEF_PORT", $previousPort, "Process")
 }
-$source = if ([string]::IsNullOrWhiteSpace($MarketplaceSource)) { $script:WefRoot } else { $MarketplaceSource }
+$sourceCandidate = if ([string]::IsNullOrWhiteSpace($MarketplaceSource)) { $script:WefRoot } else { $MarketplaceSource }
+$source = [System.IO.Path]::GetFullPath($sourceCandidate).TrimEnd('\')
 $marketplaceName = "workflow-environment-factory"
 $pluginSelector = "workflow-environment-factory@workflow-environment-factory"
+$expectedPluginPath = [System.IO.Path]::GetFullPath(
+  (Join-Path $source "plugins\workflow-environment-factory")
+).TrimEnd('\')
+$pluginManifest = Get-Content -LiteralPath (Join-Path $expectedPluginPath ".codex-plugin\plugin.json") -Raw |
+  ConvertFrom-Json
+$expectedPluginVersion = [string]$pluginManifest.version
 $marketplaceAdded = $false
 $pluginAdded = $false
 $shortcutCreated = $false
@@ -64,9 +71,12 @@ try {
   $existingHealth = Get-WefHealth $Port
   $serviceWasRunning = $null -ne $existingHealth -and $existingHealth.product -eq "workflow-environment-factory"
   $marketplaceOutput = (& $codexCommand.Source plugin marketplace list 2>&1 | Out-String)
-  $marketplacePresent = Test-WefMarketplacePresent $marketplaceOutput $marketplaceName
+  $marketplaceRecord = Get-WefMarketplaceRecord $marketplaceOutput $marketplaceName
   $pluginOutput = (& $codexCommand.Source plugin list 2>&1 | Out-String)
-  $pluginPresent = Test-WefPluginInstalled $pluginOutput $pluginSelector
+  $pluginRecord = Get-WefPluginRecord $pluginOutput $pluginSelector
+  Assert-WefCodexOwnership $marketplaceRecord $pluginRecord $source $expectedPluginPath $expectedPluginVersion
+  $marketplacePresent = $null -ne $marketplaceRecord
+  $pluginPresent = $null -ne $pluginRecord
 
   if ($Repair -and $pluginPresent) {
     & $codexCommand.Source plugin remove $pluginSelector
@@ -90,6 +100,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Codex plugin installation failed." }
     $pluginAdded = $true
   }
+  $retainedMarketplace = Get-WefMarketplaceRecord (
+    (& $codexCommand.Source plugin marketplace list 2>&1 | Out-String)
+  ) $marketplaceName
+  $retainedPlugin = Get-WefPluginRecord (
+    (& $codexCommand.Source plugin list 2>&1 | Out-String)
+  ) $pluginSelector
+  Assert-WefCodexOwnership $retainedMarketplace $retainedPlugin $source $expectedPluginPath $expectedPluginVersion
+  if ($null -eq $retainedMarketplace -or $null -eq $retainedPlugin) {
+    throw "Codex did not retain the exact Workflow Environment Factory marketplace and plugin registration."
+  }
 
   if ($EnableStartup) {
     $shortcutCreated = -not $shortcutWasPresent
@@ -111,6 +131,7 @@ try {
   }
 
   if (-not $NoStart) { & (Join-Path $PSScriptRoot "Start.ps1") -Open:$Open -Port $Port -DataDir $resolvedDataDir }
+  Write-WefInstallationReceipt $resolvedDataDir $source $expectedPluginPath $expectedPluginVersion
   Write-Host "Workflow Environment Factory is installed. Restart Codex to load its simulator MCP tools and Skill."
   Write-Host "Uninstall with .\scripts\Uninstall.ps1; product data is preserved unless -DeleteData is explicitly supplied."
 } catch {

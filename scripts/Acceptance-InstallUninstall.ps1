@@ -168,6 +168,12 @@ createServer((_request, response) => {
   Assert-Acceptance (Test-Path -LiteralPath $shortcutPath -PathType Leaf) "installer did not create the requested Startup shortcut"
   $health = Get-WefHealth $Port
   Assert-Acceptance ($null -ne $health -and $health.product -eq "workflow-environment-factory") "installed service is not healthy"
+  & (Join-Path $PSScriptRoot "Start.ps1") -Port $Port -DataDir $acceptanceData | Out-Null
+  $sameHealth = Get-WefHealth $Port
+  Assert-Acceptance (
+    $null -ne $sameHealth -and
+    [string]$sameHealth.instance_id -ceq [string]$health.instance_id
+  ) "repeat start did not recognize the owned service instance"
   $listeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop)
   Assert-Acceptance ($listeners.Count -gt 0) "service has no listening socket"
   Assert-Acceptance (@($listeners | Where-Object { $_.LocalAddress -notin @("127.0.0.1", "::1") }).Count -eq 0) "service is listening beyond loopback"

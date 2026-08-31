@@ -4,7 +4,6 @@ import json
 import os
 import queue
 import subprocess
-import sys
 import threading
 import time
 from collections import deque
@@ -15,46 +14,6 @@ from typing import Any, TextIO
 from uuid import uuid4
 
 from .codex_permissions import PROFILE_ID, permission_profile_cli_args
-
-_READ_ISOLATION_PROBE = """
-import os
-import subprocess
-import sys
-from pathlib import Path
-
-database, source, solution, sentinel = sys.argv[1:5]
-Path(sentinel).write_text("write-ok", encoding="utf-8")
-try:
-    Path(database).read_bytes()
-except OSError:
-    pass
-else:
-    print("FORBIDDEN_DATABASE_READ_SUCCEEDED")
-    raise SystemExit(73)
-
-clean_environment = dict(os.environ)
-clean_environment.pop("GIT_DIR", None)
-clean_environment.pop("GIT_WORK_TREE", None)
-version = subprocess.run(
-    ["git", "--version"], capture_output=True, text=True, env=clean_environment, check=False
-)
-if version.returncode != 0:
-    print("GIT_UNAVAILABLE")
-    raise SystemExit(74)
-probe = subprocess.run(
-    ["git", "-C", source, "show", solution],
-    capture_output=True,
-    text=True,
-    env=clean_environment,
-    check=False,
-)
-if probe.returncode == 0:
-    print("FORBIDDEN_SOLUTION_READ_SUCCEEDED")
-    raise SystemExit(75)
-Path(sentinel).write_text(
-    "write-ok;database-read-blocked;solution-read-blocked", encoding="utf-8"
-)
-"""
 
 
 class CodexPreflightError(RuntimeError):
@@ -113,6 +72,17 @@ class CodexWorkspacePreflight:
         if solution_probe.returncode != 0:
             raise CodexPreflightError("The known-correct commit is no longer available in the source repository")
         sentinel = root / f".workflow-environment-preflight-{uuid4().hex}"
+        patch = root / f".workflow-environment-preflight-patch-{uuid4().hex}"
+        relative_sentinel = sentinel.name
+        patch.write_text(
+            f"diff --git a/{relative_sentinel} b/{relative_sentinel}\n"
+            "new file mode 100644\n"
+            "--- /dev/null\n"
+            f"+++ b/{relative_sentinel}\n"
+            "@@ -0,0 +1 @@\n"
+            "+write-ok\n",
+            encoding="utf-8",
+        )
         git_dir = Path(environment["GIT_DIR"]).resolve(strict=True)
         process = subprocess.Popen(
             [
@@ -165,48 +135,111 @@ class CodexWorkspacePreflight:
                 },
             )
             self._write(process, {"method": "initialized"})
-            result = self._request(
+            git_result = self._exec(
                 process,
                 lines,
                 stderr_chunks,
                 2,
-                "command/exec",
-                {
-                    "command": [
-                        sys.executable,
-                        "-c",
-                        _READ_ISOLATION_PROBE,
-                        str(database),
-                        str(source),
-                        solution_commit,
-                        str(sentinel),
-                    ],
-                    "cwd": str(root),
-                    "permissionProfile": PROFILE_ID,
-                    "timeoutMs": 15_000,
-                },
+                ["git", "--version"],
+                root,
             )
-            if not isinstance(result, dict) or result.get("exitCode") != 0:
-                exit_code = result.get("exitCode") if isinstance(result, dict) else None
-                raise CodexPreflightError(f"Managed workspace preflight exited with {exit_code!r}")
-            expected = "write-ok;database-read-blocked;solution-read-blocked"
-            if not sentinel.is_file() or sentinel.read_text(encoding="utf-8") != expected:
+            self._require_exit(git_result, 0, "could not execute Git inside the restricted shell")
+            write_result = self._exec(
+                process,
+                lines,
+                stderr_chunks,
+                3,
+                ["git", "-C", str(root), "apply", "--whitespace=nowarn", str(patch)],
+                root,
+            )
+            self._require_exit(write_result, 0, "could not write the managed workspace")
+            if not sentinel.is_file() or sentinel.read_text(encoding="utf-8") != "write-ok\n":
                 raise CodexPreflightError(
-                    "Managed workspace preflight did not prove workspace write plus blocked database and solution reads"
+                    "Managed workspace preflight did not produce the exact workspace sentinel"
                 )
+            database_result = self._exec(
+                process,
+                lines,
+                stderr_chunks,
+                4,
+                ["git", "hash-object", str(database)],
+                root,
+            )
+            self._require_nonzero(database_result, "restricted shell read the product database")
+            source_result = self._exec(
+                process,
+                lines,
+                stderr_chunks,
+                5,
+                ["git", f"--git-dir={source / '.git'}", "show", solution_commit],
+                root,
+            )
+            self._require_nonzero(source_result, "restricted shell read the source solution commit")
         except BaseException as error:
             primary_error = error
             raise
         finally:
             cleanup_error: OSError | None = None
-            if sentinel.exists():
-                try:
-                    sentinel.unlink()
-                except OSError as error:
-                    cleanup_error = error
+            for temporary_path in (sentinel, patch):
+                if temporary_path.exists():
+                    try:
+                        temporary_path.unlink()
+                    except OSError as error:
+                        cleanup_error = error
             self._stop(process)
             if cleanup_error is not None and primary_error is None:
                 raise CodexPreflightError(f"Managed workspace preflight could not remove its sentinel: {cleanup_error}")
+
+    def _exec(
+        self,
+        process: subprocess.Popen[str],
+        lines: queue.Queue[str | None],
+        stderr_chunks: deque[str],
+        request_id: int,
+        command: list[str],
+        cwd: Path,
+    ) -> dict[str, Any]:
+        result = self._request(
+            process,
+            lines,
+            stderr_chunks,
+            request_id,
+            "command/exec",
+            {
+                "command": command,
+                "cwd": str(cwd),
+                "permissionProfile": PROFILE_ID,
+                "timeoutMs": 15_000,
+            },
+        )
+        if not isinstance(result, dict) or not isinstance(result.get("exitCode"), int):
+            raise CodexPreflightError("Managed workspace preflight returned an invalid command result")
+        return result
+
+    @staticmethod
+    def _result_detail(result: Mapping[str, Any]) -> str:
+        fragments = []
+        for name in ("stdout", "stderr", "output"):
+            value = result.get(name)
+            if isinstance(value, str) and value.strip():
+                fragments.append(f"{name}={value.strip()[-1_000:]!r}")
+        return "; ".join(fragments)
+
+    @classmethod
+    def _require_exit(cls, result: Mapping[str, Any], expected: int, message: str) -> None:
+        if result.get("exitCode") == expected:
+            return
+        detail = cls._result_detail(result)
+        suffix = f": {detail}" if detail else ""
+        raise CodexPreflightError(f"{message}; exit={result.get('exitCode')!r}{suffix}")
+
+    @classmethod
+    def _require_nonzero(cls, result: Mapping[str, Any], message: str) -> None:
+        if result.get("exitCode") != 0:
+            return
+        detail = cls._result_detail(result)
+        suffix = f": {detail}" if detail else ""
+        raise CodexPreflightError(f"{message}{suffix}")
 
     def _request(
         self,

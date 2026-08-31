@@ -22,11 +22,21 @@ for line in sys.stdin:
     elif message.get("method") == "command/exec":
         if message["params"].get("permissionProfile") != "wef_run":
             raise SystemExit("missing restricted permission profile")
-        sentinel = pathlib.Path(message["params"]["command"][-1])
-        sentinel.write_text(
-            "write-ok;database-read-blocked;solution-read-blocked", encoding="utf-8"
-        )
-        print(json.dumps({"id": message["id"], "result": {"exitCode": 0}}), flush=True)
+        command = message["params"]["command"]
+        if "apply" in command:
+            patch = pathlib.Path(command[-1])
+            marker = next(
+                line[6:]
+                for line in patch.read_text(encoding="utf-8").splitlines()
+                if line.startswith("+++ b/")
+            )
+            (pathlib.Path(message["params"]["cwd"]) / marker).write_text("write-ok\n", encoding="utf-8")
+            exit_code = 0
+        elif "hash-object" in command or any(item.startswith("--git-dir=") for item in command):
+            exit_code = 1
+        else:
+            exit_code = 0
+        print(json.dumps({"id": message["id"], "result": {"exitCode": exit_code}}), flush=True)
 """
 
 

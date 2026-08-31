@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import test from "node:test";
 
 import {
@@ -10,8 +10,10 @@ import {
   commandOwnsServer,
   initializeDataRoot,
   marketplaceListingContains,
+  marketplaceListingRecord,
   parseArguments,
   pluginListingContains,
+  pluginListingRecord,
   removeOwnedDataRoot
 } from "./portable-lifecycle.mjs";
 
@@ -34,6 +36,21 @@ test("Codex aligned plugin and marketplace tables are parsed exactly", () => {
   assert.equal(
     marketplaceListingContains("MARKETPLACE ROOT\nworkflow-environment-factory  /tmp/source", "workflow-environment-factory"),
     true
+  );
+  assert.deepEqual(
+    pluginListingRecord(
+      "workflow-environment-factory@workflow-environment-factory    installed, enabled  0.2.0  /tmp/plugin",
+      "workflow-environment-factory@workflow-environment-factory"
+    ),
+    {
+      selector: "workflow-environment-factory@workflow-environment-factory",
+      version: "0.2.0",
+      path: resolve("/tmp/plugin")
+    }
+  );
+  assert.deepEqual(
+    marketplaceListingRecord("workflow-environment-factory  /tmp/foreign-source", "workflow-environment-factory"),
+    { name: "workflow-environment-factory", root: resolve("/tmp/foreign-source") }
   );
 });
 
