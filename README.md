@@ -46,7 +46,7 @@ Requirements:
 - Codex CLI/Desktop with `codex` on `PATH`;
 - PowerShell 7 on Windows, or Bash on Linux/macOS.
 
-Install and start the long-lived service from a normal Windows Terminal or PowerShell session, not from inside an existing Codex sandbox. Every real Run performs a no-model workspace-sandbox preflight and stops as `environment_error` rather than falling back to unrestricted execution.
+Install and start the long-lived service from a normal host terminal: Windows Terminal or PowerShell on Windows, and Bash on Linux/macOS. Do not start it from inside an existing Codex sandbox. Every real Run performs a no-model workspace-sandbox preflight and stops as `environment_error` rather than falling back to unrestricted execution.
 
 On Windows, download `workflow-environment-factory-0.2.0-windows-x64.zip` and its `.sha256` file from the same GitHub Release. Verify the archive, extract it, inspect the installer, then run:
 
@@ -70,6 +70,8 @@ cd workflow-environment-factory-0.2.0
 chmod +x scripts/*.sh
 ./scripts/Install.sh --open
 ```
+
+> On macOS, this command installs the plugin and starts the local service. Docker-backed Case generation, execution, and scoring have not been verified on macOS; the release evidence covers that path on hosted Linux only.
 
 The release contains commit/protocol/Docker-bound manifests and GitHub build-provenance attestations. Each installer creates a project-local Python environment, installs the npm lockfile plus exact Python version constraints, confirms Docker and Codex, registers the extracted checkout as a Codex marketplace, installs the plugin, and starts a loopback-only service. The Python constraints are not a wheel/sdist hash lock. Restart Codex after installation.
 
@@ -119,14 +121,22 @@ Read [security and local data](docs/security-and-data.md) before using the previ
 .\scripts\Uninstall.ps1
 ```
 
+```bash
+./scripts/Uninstall.sh
+```
+
 This stops the service and removes the Codex plugin, marketplace entry, and optional startup shortcut. It preserves product data by default. Permanent data removal is a separate explicit action:
 
 ```powershell
 .\scripts\Uninstall.ps1 -DeleteData
 ```
 
+```bash
+./scripts/Uninstall.sh --delete-data
+```
+
 All entry points create only a nonexistent data directory or reuse one with this product's marker; existing unmarked directories are rejected. The uninstaller also rejects files/reparse points and broad protected locations, and never deletes the source checkout.
-To obtain machine-readable proof that no service, PID file, Startup shortcut, plugin, or marketplace registration remains, run `./scripts/Inspect-Installation.ps1 -RequireAbsent`; add `-RequireNoData` only after an intentional `-DeleteData` uninstall.
+To obtain machine-readable proof that no service, PID file, Startup shortcut, plugin, or marketplace registration remains, run `.\scripts\Inspect-Installation.ps1 -RequireAbsent` on Windows or `./scripts/Inspect-Installation.sh --require-absent` on Linux/macOS. Add the platform's no-data flag only after an intentional data-deleting uninstall.
 
 ## Architecture
 
