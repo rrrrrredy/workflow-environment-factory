@@ -1,5 +1,5 @@
 param(
-  [string]$Version = "0.1.0",
+  [string]$Version = "0.2.0",
   [string]$OutputDirectory = "",
   [string]$ProtocolRoot = ""
 )
@@ -124,8 +124,8 @@ try {
     version = $Version
     commit = $commit
     release_tier = "technical_preview"
-    supported_platforms = @("windows-11-x64")
-    unsupported_platforms = @("macos", "linux")
+    supported_platforms = @("windows-11-x64", "linux-x64", "macos-arm64")
+    unverified_platforms = @("macos-x64", "linux-arm64")
     protocol_dependency = [ordered]@{
       name = "runcase-interchange"
       version = "0.1.2"
@@ -140,6 +140,7 @@ try {
     }
     archive = [ordered]@{
       file = [System.IO.Path]::GetFileName($archivePath)
+      platform = "windows-11-x64"
       sha256 = $checksum
       bytes = (Get-Item -LiteralPath $archivePath).Length
     }

@@ -26,7 +26,7 @@ test("portable arguments and unsafe roots fail closed", () => {
 test("Codex aligned plugin and marketplace tables are parsed exactly", () => {
   assert.equal(
     pluginListingContains(
-      "workflow-environment-factory@workflow-environment-factory    installed, enabled  0.1.0  /tmp/plugin",
+      "workflow-environment-factory@workflow-environment-factory    installed, enabled  0.2.0  /tmp/plugin",
       "workflow-environment-factory@workflow-environment-factory"
     ),
     true
@@ -40,10 +40,12 @@ test("Codex aligned plugin and marketplace tables are parsed exactly", () => {
 test("portable ownership accepts the macOS-resolved Python executable only with the module marker", () => {
   const linkedPython = "/tmp/factory/.venv/bin/python";
   const realPython = "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13";
+  const siblingPython = "/tmp/factory/.venv/bin/python3";
   const marker = "workflow_environment_factory.cli";
-  assert.equal(commandOwnsServer(`${realPython} -m ${marker} serve`, linkedPython, realPython, marker), true);
-  assert.equal(commandOwnsServer(`${realPython} -m another.module serve`, linkedPython, realPython, marker), false);
-  assert.equal(commandOwnsServer(`/tmp/foreign/python -m ${marker} serve`, linkedPython, realPython, marker), false);
+  const ownedPaths = [linkedPython, realPython, siblingPython];
+  assert.equal(commandOwnsServer(`${siblingPython} -m ${marker} serve`, ownedPaths, marker), true);
+  assert.equal(commandOwnsServer(`${realPython} -m another.module serve`, ownedPaths, marker), false);
+  assert.equal(commandOwnsServer(`/tmp/foreign/python -m ${marker} serve`, ownedPaths, marker), false);
 });
 
 test("portable data deletion requires the exact Factory marker", () => {

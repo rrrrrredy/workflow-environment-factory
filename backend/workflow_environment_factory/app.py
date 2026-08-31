@@ -82,7 +82,7 @@ def _agent_case_view(case: Any) -> dict[str, Any]:
 
 
 def create_app(services: Services) -> FastAPI:
-    app = FastAPI(title="Workflow Environment Factory", version="0.1.0", docs_url=None, redoc_url=None)
+    app = FastAPI(title="Workflow Environment Factory", version="0.2.0", docs_url=None, redoc_url=None)
     session_token = load_or_create_token(services.settings.token_path)
 
     @app.middleware("http")
@@ -101,7 +101,7 @@ def create_app(services: Services) -> FastAPI:
 
     @app.get("/health")
     async def health() -> dict[str, Any]:
-        return {"ok": True, "product": "workflow-environment-factory", "version": "0.1.0"}
+        return {"ok": True, "product": "workflow-environment-factory", "version": "0.2.0"}
 
     @app.get("/session/{token}")
     async def establish_session(token: str) -> RedirectResponse:
@@ -123,7 +123,7 @@ def create_app(services: Services) -> FastAPI:
         docker = services.engine.availability() if isinstance(services.engine, DockerEngine) else None
         return {
             "product": "Workflow Environment Factory",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "engine": services.engine.name,
             "docker_available": None if docker is None else docker.status == "pass",
             "docker_details": None if docker is None else docker.stderr or docker.stdout,

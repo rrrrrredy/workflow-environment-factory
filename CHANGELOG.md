@@ -4,7 +4,10 @@ All notable user-visible changes are documented here. The project follows Semant
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-31
+
 - Added independent Linux/macOS install, start, stop, inspection, and uninstall entry points plus an exact v0.1.2 schema sync tool. Hosted Ubuntu proves the portable lifecycle with real Docker available; hosted macOS proves build/plugin/service removal only and explicitly does not claim Docker Desktop, physical-Mac, or authenticated-Codex task acceptance.
+- Added one commit-bound portable release archive; tag publication now waits for extracted-archive lifecycle evidence on Ubuntu and Apple Silicon macOS as well as the separate Windows archive gate.
 - Runs now use an atomic `ready` to `queued` claim and serialized SQLite access, preventing duplicate Agent launches from concurrent execute requests; scoring is also serialized per Run and keeps one immutable result.
 - Run evidence distinguishes real Codex processes from synthetic product fixtures. Synthetic Scores and UI state explicitly record `model_executed: false`, and the production scoring endpoint rejects unscored synthetic Runs.
 - A Score now requires retained evidence that the Codex process started, rejects a merely prepared workspace, and has one deterministic immutable head per Run even when an older database contains duplicate historical rows.

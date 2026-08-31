@@ -2,13 +2,13 @@
 
 ## Supported preview environment
 
-- Windows 11 x64, Linux x64, or macOS
+- Windows 11 x64, Linux x64, or Apple Silicon macOS
 - Docker Desktop using Linux containers on Windows/macOS, or Docker Engine on Linux
 - Python 3.11-3.13
 - Node.js 22.x
 - Git
 - Codex CLI/Desktop with `codex` on `PATH`
-- PowerShell 7 recommended
+- PowerShell 7 on Windows, or Bash on Linux/macOS
 
 Windows uses the readable PowerShell lifecycle. Linux and macOS use the readable shell/Node lifecycle. Neither path requires administrator privileges.
 
@@ -16,23 +16,23 @@ GitHub-hosted Ubuntu proves the full portable plugin/service lifecycle with a re
 
 ## Install from a release archive
 
-1. Download `workflow-environment-factory-0.1.0-windows-x64.zip` and its `.sha256` file from the same GitHub Release.
+1. Download `workflow-environment-factory-0.2.0-windows-x64.zip` and its `.sha256` file from the same GitHub Release.
 2. Verify the archive before extracting it:
 
    ```powershell
-   Get-FileHash .\workflow-environment-factory-0.1.0-windows-x64.zip -Algorithm SHA256
+   Get-FileHash .\workflow-environment-factory-0.2.0-windows-x64.zip -Algorithm SHA256
    ```
 
 3. Extract the archive, inspect `scripts\Install.ps1`, then run:
 
    ```powershell
-   Set-Location .\workflow-environment-factory-0.1.0
+   Set-Location .\workflow-environment-factory-0.2.0
    .\scripts\Install.ps1 -Open
    ```
 
 4. Restart Codex so the new Skill and MCP server are discovered.
 
-On Linux or macOS, download the matching portable archive, verify its SHA-256, extract it, then run:
+On Linux or Apple Silicon macOS, download `workflow-environment-factory-0.2.0-portable.tar.gz` plus its `.sha256`, verify it, extract it, then run from the extracted directory:
 
 ```bash
 chmod +x scripts/*.sh

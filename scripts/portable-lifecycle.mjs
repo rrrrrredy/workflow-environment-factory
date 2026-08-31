@@ -7,6 +7,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   rmSync,
   writeFileSync
@@ -283,16 +284,31 @@ function processCommand(pid) {
 function assertOwnedProcess(record) {
   const command = processCommand(record.pid);
   const server = resolve(record.server_path);
-  const realServer = realpathSync(server);
-  if (!commandOwnsServer(command, server, realServer, record.command_marker)) {
+  const serverPaths = equivalentServerPaths(server);
+  if (!commandOwnsServer(command, serverPaths, record.command_marker)) {
     fail(`Refusing to signal PID ${record.pid}; its command does not match the owned Factory server.`);
   }
 }
 
-function commandOwnsServer(command, server, realServer, commandMarker) {
+function equivalentServerPaths(server) {
+  const realServer = realpathSync(server);
+  const paths = new Set([server, realServer]);
+  for (const entry of readdirSync(dirname(server))) {
+    if (!/^python(?:\d+(?:\.\d+)*)?$/.test(entry)) continue;
+    const candidate = resolve(dirname(server), entry);
+    try {
+      if (realpathSync(candidate) === realServer) paths.add(candidate);
+    } catch {
+      // Ignore a broken sibling link; the recorded interpreter itself was already resolved.
+    }
+  }
+  return [...paths];
+}
+
+function commandOwnsServer(command, serverPaths, commandMarker) {
   return Boolean(
     command &&
-    (command.includes(server) || command.includes(realServer)) &&
+    serverPaths.some((serverPath) => command.includes(serverPath)) &&
     command.includes(`-m ${commandMarker}`)
   );
 }
@@ -611,6 +627,7 @@ export {
   assertDataRoot,
   assertSafeDataPath,
   commandOwnsServer,
+  equivalentServerPaths,
   initializeDataRoot,
   marketplaceListingContains,
   parseArguments,

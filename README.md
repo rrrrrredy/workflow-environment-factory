@@ -4,9 +4,7 @@ Workflow Environment Factory turns your own repository or Issue-to-PR process in
 
 It is not a public benchmark, an environment-outsourcing service, or a dashboard for watching an Agent. The useful output is a task pack you can keep, rerun, inspect, and improve as your repository and workflow change.
 
-> **Release status:** 0.1 technical preview for Windows 11 and Codex. CI covers both deterministic Docker verticals on Linux, the product, release archive, a Windows installation lifecycle with an explicitly disclosed Docker command stub, and synthetic UI; this preview does not claim a real authenticated Codex run or single-host Windows 11 Docker Desktop acceptance and must not be labeled stable.
-
-macOS is not supported by the 0.1 installer or lifecycle tools. The Python service, web UI, Docker executor, MCP server, and Codex App Server boundary are largely portable, but running those pieces from source is not a supported Mac installation.
+> **Release status:** 0.2 technical preview for Codex on Windows 11 x64, Linux x64, and Apple Silicon macOS. Hosted Linux runs the real Docker code and Issue-to-PR gates. Hosted macOS proves the downloadable product lifecycle only; Docker task execution, a physical Mac, an ordinary user-owned clean machine, and an authenticated Codex Run were not tested.
 
 ![Workflow Environment Factory Case matrix with fully synthetic data](docs/images/ui-desktop-case-factory-synthetic.png)
 
@@ -40,29 +38,40 @@ The Agent workspace has no remote, no shared object database, and no object from
 
 Requirements:
 
-- Windows 11;
-- Docker Desktop using Linux containers;
+- Windows 11 x64, Linux x64, or Apple Silicon macOS;
+- a reachable Docker daemon using Linux containers (Docker Desktop on Windows/macOS);
 - Python 3.11, 3.12, or 3.13;
 - Node.js 22.x;
 - Git;
 - Codex CLI/Desktop with `codex` on `PATH`;
-- PowerShell 7 recommended.
+- PowerShell 7 on Windows, or Bash on Linux/macOS.
 
 Install and start the long-lived service from a normal Windows Terminal or PowerShell session, not from inside an existing Codex sandbox. Every real Run performs a no-model workspace-sandbox preflight and stops as `environment_error` rather than falling back to unrestricted execution.
 
-Download `workflow-environment-factory-0.1.0-windows-x64.zip` and its `.sha256` file from the same GitHub Release. Verify the archive, extract it, inspect the installer, then run:
+On Windows, download `workflow-environment-factory-0.2.0-windows-x64.zip` and its `.sha256` file from the same GitHub Release. Verify the archive, extract it, inspect the installer, then run:
 
 ```powershell
-$archive = '.\workflow-environment-factory-0.1.0-windows-x64.zip'
+$archive = '.\workflow-environment-factory-0.2.0-windows-x64.zip'
 $expected = (Get-Content "$archive.sha256").Split()[0]
 $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -ne $expected) { throw 'Workflow Environment Factory archive checksum mismatch.' }
 Expand-Archive $archive -DestinationPath .
-Set-Location workflow-environment-factory-0.1.0
+Set-Location workflow-environment-factory-0.2.0
 .\scripts\Install.ps1 -Open
 ```
 
-The same release contains a commit/protocol/Docker-bound manifest and GitHub build-provenance attestation. The installer creates a project-local Python virtual environment, installs the npm lockfile plus exact Python version constraints, runs focused checks, confirms Docker and Codex, registers this checkout as a Codex marketplace, installs the plugin, and starts a loopback-only service. The Python constraints are not a wheel/sdist hash lock. Restart Codex after installation.
+On Linux or Apple Silicon macOS, download `workflow-environment-factory-0.2.0-portable.tar.gz` and its `.sha256` file, then run:
+
+```bash
+archive=workflow-environment-factory-0.2.0-portable.tar.gz
+node -e 'const fs=require("node:fs"),c=require("node:crypto");const p=process.argv[1],e=fs.readFileSync(p+".sha256","utf8").trim().split(/\s+/)[0],a=c.createHash("sha256").update(fs.readFileSync(p)).digest("hex");if(a!==e)process.exit(1)' "$archive"
+tar -xzf "$archive"
+cd workflow-environment-factory-0.2.0
+chmod +x scripts/*.sh
+./scripts/Install.sh --open
+```
+
+The release contains commit/protocol/Docker-bound manifests and GitHub build-provenance attestations. Each installer creates a project-local Python environment, installs the npm lockfile plus exact Python version constraints, confirms Docker and Codex, registers the extracted checkout as a Codex marketplace, installs the plugin, and starts a loopback-only service. The Python constraints are not a wheel/sdist hash lock. Restart Codex after installation.
 
 To run from source before a packaged protocol dependency exists:
 
@@ -129,7 +138,7 @@ To obtain machine-readable proof that no service, PID file, Startup shortcut, pl
 
 Workflow Environment Factory does not share a service, database, queue, UI, executor, or product code with Runtime Evolution Workbench. See [architecture](docs/architecture.md).
 
-## Deliberate non-goals for 0.1
+## Deliberate non-goals for 0.2
 
 No arbitrary production SaaS cloning, production accounts or data, cloud concurrency, reinforcement learning, model training, multi-Agent orchestration, environment marketplace, screenshot-similarity scoring, unreviewed LLM-generated tasks, or support for Agents other than Codex.
 
@@ -141,7 +150,7 @@ $env:WEF_PYTHON = 'C:\path\to\python.exe'
 .\scripts\Check.ps1 -InstallDependencies
 ```
 
-The regular check performs a strict React production build, exact Python version-constraint check, static analysis, the two focused golden scenarios, and plugin/MCP validation. The Python file is not an artifact-hash lock. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Version 0.1.0 packaging records that the authenticated code and Issue-to-PR Agent gate was not run; that optional gate and ordinary user-owned Windows 11 acceptance remain mandatory before any stable label.
+The regular check performs a strict React production build, exact Python version-constraint check, static analysis, the two focused golden scenarios, and plugin/MCP validation. The Python file is not an artifact-hash lock. The deterministic Docker gate proves reset and scoring against an immutable image, but does not pretend a hand-applied correct state was produced by Codex. Version 0.2.0 packaging records that the authenticated code and Issue-to-PR Agent gate was not run; that optional gate and ordinary user-owned acceptance remain mandatory before any stable label.
 
 Current evidence and remaining gates are listed in [acceptance](docs/acceptance.md). The tag-to-release gates and fixed Docker input are documented in [release process](docs/release-process.md). Contributions are welcome under [CONTRIBUTING.md](CONTRIBUTING.md); security reports follow [SECURITY.md](SECURITY.md).
 

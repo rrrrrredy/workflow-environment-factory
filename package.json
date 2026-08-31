@@ -1,6 +1,6 @@
 {
   "name": "workflow-environment-factory-web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Local UI for building and scoring resettable Codex workflow environments.",
   "license": "Apache-2.0",

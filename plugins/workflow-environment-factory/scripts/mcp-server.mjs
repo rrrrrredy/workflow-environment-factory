@@ -154,7 +154,7 @@ async function handle(message) {
         result: {
           protocolVersion: supported.includes(requested) ? requested : "2025-11-25",
           capabilities: { tools: { listChanged: false } },
-          serverInfo: { name: "workflow-environment-factory", version: "0.1.0" }
+          serverInfo: { name: "workflow-environment-factory", version: "0.2.0" }
         }
       });
       return;
