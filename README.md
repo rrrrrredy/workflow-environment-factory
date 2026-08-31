@@ -71,6 +71,8 @@ Install and start the long-lived service from a normal host terminal: Windows Te
 
 On Windows, download `workflow-environment-factory-0.2.1-windows-x64.zip` and its `.sha256` file from the same GitHub Release. Verify the archive, extract it, inspect the installer, then run:
 
+Most users need only the archive for their platform and the same-named `.sha256` file; the other attached JSON and text files are public verification evidence.
+
 ```powershell
 $archive = '.\workflow-environment-factory-0.2.1-windows-x64.zip'
 $expected = (Get-Content "$archive.sha256").Split()[0]
