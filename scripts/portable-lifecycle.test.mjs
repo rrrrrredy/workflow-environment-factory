@@ -4,7 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { assertDataRoot, assertSafeDataPath, initializeDataRoot, parseArguments, removeOwnedDataRoot } from "./portable-lifecycle.mjs";
+import {
+  assertDataRoot,
+  assertSafeDataPath,
+  initializeDataRoot,
+  marketplaceListingContains,
+  parseArguments,
+  pluginListingContains,
+  removeOwnedDataRoot
+} from "./portable-lifecycle.mjs";
 
 test("portable arguments and unsafe roots fail closed", () => {
   const parsed = parseArguments(["install", "--port", "43121", "--skip-docker-check"]);
@@ -12,6 +20,20 @@ test("portable arguments and unsafe roots fail closed", () => {
   assert.equal(parsed.skipDockerCheck, true);
   assert.throws(() => parseArguments(["start", "--port", "80"]), /between 1024 and 65535/);
   assert.throws(() => assertSafeDataPath("/"), /unsafe/);
+});
+
+test("Codex aligned plugin and marketplace tables are parsed exactly", () => {
+  assert.equal(
+    pluginListingContains(
+      "workflow-environment-factory@workflow-environment-factory    installed, enabled  0.1.0  /tmp/plugin",
+      "workflow-environment-factory@workflow-environment-factory"
+    ),
+    true
+  );
+  assert.equal(
+    marketplaceListingContains("MARKETPLACE ROOT\nworkflow-environment-factory  /tmp/source", "workflow-environment-factory"),
+    true
+  );
 });
 
 test("portable data deletion requires the exact Factory marker", () => {

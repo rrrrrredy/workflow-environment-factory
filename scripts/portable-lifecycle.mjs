@@ -421,17 +421,29 @@ function codexState(required = true) {
   let marketplaceRegistered = null;
   try {
     const listing = run(codex, ["plugin", "list"], { capture: true });
-    pluginInstalled = listing.split(/\r?\n/).some((line) => line.trim().startsWith(`${pluginSelector} installed`));
+    pluginInstalled = pluginListingContains(listing, pluginSelector);
   } catch (error) {
     errors.push(`plugin state: ${error.message}`);
   }
   try {
     const listing = run(codex, ["plugin", "marketplace", "list"], { capture: true });
-    marketplaceRegistered = listing.split(/\r?\n/).some((line) => line.trim().split(/\s+/)[0] === marketplaceName);
+    marketplaceRegistered = marketplaceListingContains(listing, marketplaceName);
   } catch (error) {
     errors.push(`marketplace state: ${error.message}`);
   }
   return { codex, pluginInstalled, marketplaceRegistered, errors };
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function pluginListingContains(listing, selector) {
+  return new RegExp(`^\\s*${escapeRegex(selector)}\\s+installed(?:,|\\s|$)`, "m").test(listing);
+}
+
+function marketplaceListingContains(listing, name) {
+  return new RegExp(`^\\s*${escapeRegex(name)}(?:\\s+|$)`, "m").test(listing);
 }
 
 async function install(options) {
@@ -585,7 +597,15 @@ async function main() {
   }
 }
 
-export { assertDataRoot, assertSafeDataPath, initializeDataRoot, parseArguments, removeOwnedDataRoot };
+export {
+  assertDataRoot,
+  assertSafeDataPath,
+  initializeDataRoot,
+  marketplaceListingContains,
+  parseArguments,
+  pluginListingContains,
+  removeOwnedDataRoot
+};
 
 if (resolve(process.argv[1] ?? "") === scriptPath) {
   main().catch((error) => {
