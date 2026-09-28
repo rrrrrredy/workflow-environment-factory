@@ -34,7 +34,7 @@ Security = "https://github.com/rrrrrredy/workflow-environment-factory/security/p
 dev = [
   "httpx2==2.12.0",
   "pytest==9.1.1",
-  "ruff==0.16.5"
+  "ruff==0.16.9"
 ]
 
 [project.scripts]
