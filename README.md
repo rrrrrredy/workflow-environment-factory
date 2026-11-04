@@ -21,7 +21,7 @@ It is not a public benchmark, an environment-outsourcing service, or a dashboard
 | --- | --- | --- |
 | Windows 11 x64 | Downloadable archive, local service, UI, plugin lifecycle, and final absence | Unavailable: the required deny-read isolation cannot yet be applied or enforced; hosted Windows did not run the real Docker task gate |
 | Linux x64 | Downloadable archive lifecycle plus both real-Docker Case/reset/scoring gates | Unavailable on the hosted runner: Codex cannot create the required network namespace |
-| Apple Silicon macOS | Downloadable archive lifecycle and no-model read isolation | Unverified: no macOS Docker task gate, authenticated Codex Run, or physical Mac was used |
+| Apple Silicon macOS | Downloadable archive lifecycle and no-model read isolation | Lifecycle preview; task execution requires the local isolation and Docker gates |
 
 ![Workflow Environment Factory Case matrix with fully synthetic data](docs/images/ui-desktop-case-factory-synthetic.png)
 
@@ -94,7 +94,7 @@ chmod +x scripts/*.sh
 ./scripts/Install.sh --open
 ```
 
-> On macOS, this command installs the plugin and starts the local service. Docker-backed Case generation, execution, and scoring have not been verified on macOS; the release evidence covers that path on hosted Linux only. Treat macOS as a lifecycle preview.
+> On macOS, this lifecycle preview installs the plugin and starts the local service. The archived Docker Case-generation and scoring runs used hosted Linux.
 
 The release contains commit/protocol/Docker-bound manifests and GitHub build-provenance attestations. Each installer creates a project-local Python environment, installs the npm lockfile plus exact Python version constraints, confirms Docker and Codex, registers the extracted checkout as a Codex marketplace, installs the plugin, and starts a loopback-only service. The Python constraints are not a wheel/sdist hash lock. Restart Codex after installation.
 
