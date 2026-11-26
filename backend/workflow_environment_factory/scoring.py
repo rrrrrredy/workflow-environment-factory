@@ -3,16 +3,16 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 import json
-import threading
+import time
 from datetime import UTC, datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
 from .content_store import ContentStore
 from .engine import ExecutionEngine, ProcessResult
 from .gitops import GitWorkspaceManager
-from .models import AttemptOrigin, BlueprintKind, RunStatus
+from .models import AttemptOrigin, BlueprintKind, RunRecord, RunStatus
 from .protocol import ProtocolValidator
 from .redaction import redact
 from .simulator import IssuePrSimulator
@@ -49,25 +49,27 @@ class ScoreService:
         self.git = git
         self.engine = engine
         self.simulator = simulator or IssuePrSimulator()
-        self._score_locks_guard = threading.Lock()
-        self._score_locks: dict[str, threading.Lock] = {}
 
     def score(self, run_id: UUID | str, *, allow_synthetic_fixture: bool = False) -> dict[str, Any]:
-        key = str(run_id)
-        with self._score_locks_guard:
-            run_lock = self._score_locks.setdefault(key, threading.Lock())
-        with run_lock:
-            return self._score_locked(run_id, allow_synthetic_fixture=allow_synthetic_fixture)
+        # A verifier can spend 310 seconds preparing an image and up to 900 seconds running.
+        deadline = time.monotonic() + 1220
+        while True:
+            run, existing = self.store.claim_scoring(run_id)
+            if existing is not None:
+                return existing
+            if run is not None:
+                break
+            if time.monotonic() >= deadline:
+                raise ValueError("timed out waiting for the existing scoring attempt")
+            time.sleep(0.05)
+        original = run.model_copy(deep=True)
+        try:
+            return self._score_claimed(run, allow_synthetic_fixture=allow_synthetic_fixture)
+        except BaseException:
+            self.store.save_run(original)
+            raise
 
-    def _score_locked(self, run_id: UUID | str, *, allow_synthetic_fixture: bool) -> dict[str, Any]:
-        existing = self.store.get_score_for_run(run_id)
-        if existing is not None:
-            return existing
-        run = self.store.get_run(run_id)
-        if run is None:
-            raise KeyError("run not found")
-        if run.status not in {RunStatus.COMPLETED, RunStatus.AGENT_CRASH, RunStatus.AGENT_TIMEOUT}:
-            raise ValueError(f"run cannot be scored from status {run.status}")
+    def _score_claimed(self, run: RunRecord, *, allow_synthetic_fixture: bool) -> dict[str, Any]:
         if not run.agent_attempted:
             raise ValueError("run has no retained evidence that the Codex runner started an attempt")
         if run.attempt_origin == AttemptOrigin.SYNTHETIC_FIXTURE and not allow_synthetic_fixture:
@@ -134,11 +136,8 @@ class ScoreService:
             }
             self.protocol.validate(score)
             run.completed_at = completed
-            self.store.save_run(run)
-            return self.store.save_score(score)
+            return self.store.save_score(score, run)
         started = datetime.now(UTC)
-        run.status = RunStatus.VALIDATING
-        self.store.save_run(run)
         workspace = Path(run.workspace_path)
         validation_rows: list[dict[str, Any]] = []
         execution_status = "completed"
@@ -146,13 +145,59 @@ class ScoreService:
 
         pre_verifier_state: dict[str, str] | None = None
         try:
-            pre_verifier_state = self._workspace_state(workspace)
-        except Exception as error:
+            if run.baseline_manifest_ref:
+                baseline = json.loads(self.content_store.read(run.baseline_manifest_ref))
+            else:
+                # Historical Runs predate manifests. Rebuild the original confirmed variant outside the Run.
+                fresh, _ = self.git.materialize_isolated(
+                    Path(blueprint.repository_root),
+                    blueprint.base_commit,
+                    uuid4(),
+                    "baseline",
+                    blueprint.payload.variable.original,
+                    case.variable_value,
+                    blueprint.payload.variable.paths,
+                )
+                try:
+                    baseline = self.git.workspace_manifest(fresh)
+                finally:
+                    self.git.remove_isolated(fresh)
+            pre_verifier_state = self.git.workspace_manifest(workspace)
+            changed = {
+                name
+                for name in baseline.keys() | pre_verifier_state.keys()
+                if baseline.get(name) != pre_verifier_state.get(name)
+            }
+            command = blueprint.payload.verifier
+            assets = set(command.asset_paths) | set(case.protocol_case["safety"].get("denied_paths", [])) | {
+                "tests", "conftest.py", "pytest.ini", "test_*.py", "*_test.py"
+            }
+            for arg in command.argv:
+                candidate = Path(arg)
+                if not candidate.is_absolute() and ".." not in candidate.parts and candidate.parts:
+                    path = candidate.as_posix()
+                    if path in baseline or any(name.startswith(path + "/") for name in baseline):
+                        assets.add(path)
+            for name in tuple(assets):
+                if any(char in name for char in "*?["):
+                    continue
+                asset = workspace / name
+                if name in command.asset_paths and not asset.exists():
+                    raise ValueError(f"declared verifier asset is missing: {name}")
+                target = asset.resolve()
+                if not target.is_relative_to(workspace.resolve()):
+                    raise ValueError(f"verifier asset points outside the workspace: {name}")
+                assets.add(target.relative_to(workspace.resolve()).as_posix())
+            altered = sorted(name for name in changed if _path_allowed(name, list(assets)))
+            if altered:
+                raise ValueError("verifier assets differ from the confirmed baseline: " + ", ".join(altered))
+        except (OSError, ValueError, RuntimeError) as error:
+            pre_verifier_state = None
             execution_status = "validator_error"
             failure_stage = "validating"
             validation_rows.append(
                 {
-                    "validator_id": "verifier-workspace-integrity",
+                    "validator_id": "verifier-assets",
                     "status": "error",
                     "objective": False,
                     "required": True,
@@ -168,11 +213,15 @@ class ScoreService:
                 }
             )
 
-        verifier = self.engine.run(
-            workspace,
-            blueprint.payload.container_image,
-            blueprint.payload.verifier.argv,
-            blueprint.payload.verifier.timeout_ms,
+        verifier = (
+            self.engine.run(
+                workspace,
+                blueprint.payload.container_image,
+                blueprint.payload.verifier.argv,
+                blueprint.payload.verifier.timeout_ms,
+            )
+            if pre_verifier_state is not None
+            else ProcessResult("error", None, "", "Could not verify scoring assets.", 0)
         )
         if verifier.status in {"error", "timeout"}:
             execution_status = "validator_error"
@@ -181,7 +230,7 @@ class ScoreService:
 
         if pre_verifier_state is not None:
             try:
-                post_verifier_state = self._workspace_state(workspace)
+                post_verifier_state = self.git.workspace_manifest(workspace)
                 integrity_passed = post_verifier_state == pre_verifier_state
                 if not integrity_passed:
                     execution_status = "validator_error"
@@ -209,7 +258,11 @@ class ScoreService:
                         ],
                     }
                 )
-                changed_paths = sorted(post_verifier_state)
+                changed_paths = sorted(
+                    name
+                    for name in baseline.keys() | post_verifier_state.keys()
+                    if baseline.get(name) != post_verifier_state.get(name)
+                )
                 paths_pass = bool(changed_paths) and all(
                     _path_allowed(path, blueprint.payload.allowed_paths) for path in changed_paths
                 )
@@ -350,8 +403,7 @@ class ScoreService:
         self.protocol.validate(score)
         run.status = RunStatus.COMPLETED if execution_status == "completed" else RunStatus.ENVIRONMENT_ERROR
         run.completed_at = completed
-        self.store.save_run(run)
-        return self.store.save_score(score)
+        return self.store.save_score(score, run)
 
     @staticmethod
     def _command_validation(result: ProcessResult) -> dict[str, Any]:
@@ -372,29 +424,6 @@ class ScoreService:
                 }
             ],
         }
-
-    def _workspace_state(self, workspace: Path) -> dict[str, str]:
-        root = workspace.resolve()
-        state: dict[str, str] = {}
-        for relative in self.git.changed_paths(root, "HEAD"):
-            normalized = relative.replace("\\", "/")
-            path = PurePosixPath(normalized)
-            if path.is_absolute() or ".." in path.parts or normalized in {"", "."}:
-                raise RuntimeError(f"Git reported an unsafe changed path: {relative}")
-            candidate = root.joinpath(*path.parts)
-            if candidate.is_symlink():
-                state[normalized] = f"symlink:{candidate.readlink()}"
-            elif not candidate.exists():
-                state[normalized] = "deleted"
-            elif candidate.is_file():
-                digest = hashlib.sha256()
-                with candidate.open("rb") as handle:
-                    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                        digest.update(chunk)
-                state[normalized] = f"sha256:{digest.hexdigest()}"
-            else:
-                state[normalized] = "non-file"
-        return state
 
     @staticmethod
     def _weighted_score(protocol_case: dict[str, Any], results: list[dict[str, Any]]) -> float:

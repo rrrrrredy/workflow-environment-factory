@@ -33,7 +33,7 @@ class Services:
     def build(cls, settings: Settings, engine: ExecutionEngine | None = None) -> Services:
         store = FactoryStore(settings.database_path)
         content_store = ContentStore(settings.content_dir)
-        protocol = ProtocolValidator(settings.protocol_schema_dir)
+        protocol = ProtocolValidator(settings.protocol_schema_dir, semantic=True)
         git = GitWorkspaceManager(settings.worktrees_dir)
         execution_engine = engine or DockerEngine(settings.docker_executable)
         simulator = IssuePrSimulator()
@@ -45,6 +45,7 @@ class Services:
             git=git,
             engine=execution_engine,
             simulator=simulator,
+            port=settings.port,
         )
         scorer = ScoreService(
             store=store,

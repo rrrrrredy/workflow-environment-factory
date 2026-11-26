@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Protocol
 from uuid import uuid4
 
+from .process import run_command
+
 
 @dataclass(frozen=True)
 class ProcessResult:
@@ -45,15 +47,8 @@ class LocalTestEngine:
         del image
         started = time.monotonic()
         try:
-            completed = subprocess.run(
-                argv,
-                cwd=workspace,
-                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-                capture_output=True,
-                text=True,
-                timeout=timeout_ms / 1_000,
-                shell=False,
-                check=False,
+            completed = run_command(
+                argv, workspace, timeout_ms / 1_000, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
             )
             return ProcessResult(
                 status="pass" if completed.returncode == 0 else "fail",
@@ -171,49 +166,15 @@ class DockerEngine:
             image,
             *argv,
         ]
-        started = time.monotonic()
-        try:
-            process = subprocess.Popen(
-                command,
-                cwd=workspace,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                shell=False,
-                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
-            )
-            try:
-                stdout, stderr = process.communicate(timeout=timeout_ms / 1_000)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                stdout, stderr = process.communicate()
-                subprocess.run(
-                    [self.executable, "rm", "-f", container_name],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    shell=False,
-                    check=False,
-                )
+        result = LocalTestEngine().run(workspace, "", command, timeout_ms)
+        if result.status == "timeout":
+            cleanup = LocalTestEngine().run(workspace, "", [self.executable, "rm", "-f", container_name], 30_000)
+            if cleanup.status != "pass" and "no such container" not in cleanup.stderr.lower():
                 return ProcessResult(
-                    status="timeout",
-                    exit_code=None,
-                    stdout=_bounded(stdout),
-                    stderr=_bounded(stderr),
-                    duration_ms=int((time.monotonic() - started) * 1_000),
+                    "error",
+                    None,
+                    result.stdout,
+                    _bounded(f"{result.stderr}\nContainer cleanup failed: {cleanup.stderr}"),
+                    result.duration_ms + cleanup.duration_ms,
                 )
-            return ProcessResult(
-                status="pass" if process.returncode == 0 else "fail",
-                exit_code=process.returncode,
-                stdout=_bounded(stdout),
-                stderr=_bounded(stderr),
-                duration_ms=int((time.monotonic() - started) * 1_000),
-            )
-        except OSError as error:
-            return ProcessResult(
-                status="error",
-                exit_code=None,
-                stdout="",
-                stderr=str(error),
-                duration_ms=int((time.monotonic() - started) * 1_000),
-            )
+        return result

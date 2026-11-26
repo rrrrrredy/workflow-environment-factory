@@ -173,3 +173,27 @@ def test_hosted_platform_limitations_are_narrow_and_opt_in() -> None:
         )
         is None
     )
+
+
+def test_local_engine_owns_descendants_and_bounds_its_output(tmp_path):
+    import sys
+    import time
+
+    from workflow_environment_factory.engine import LocalTestEngine
+
+    # The grandchild holds both inherited output pipes and would leave a late marker.
+    child = "import pathlib,time; time.sleep(2.5); pathlib.Path('late').touch()"
+    parent = (
+        "import subprocess,sys,time; subprocess.Popen([sys.executable, '-c', sys.argv[1]]); "
+        "print('started', flush=True); time.sleep(15)"
+    )
+    engine = LocalTestEngine()
+    started = time.monotonic()
+    result = engine.run(tmp_path, "", [sys.executable, "-c", parent, child], 700)
+    assert result.status == "timeout" and "started" in result.stdout
+    assert time.monotonic() - started < 2.4
+    success = engine.run(tmp_path, "", [sys.executable, "-c", "print('x'*1200000 + 'end')"], 5000)
+    assert success.status == "pass" and success.stdout.rstrip().endswith("end")
+    assert len(success.stdout) <= 1_000_000
+    time.sleep(max(0, 3.0 - (time.monotonic() - started)))
+    assert not (tmp_path / "late").exists()

@@ -6,6 +6,7 @@ import shutil
 import stat
 import subprocess
 import time
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
@@ -287,8 +288,8 @@ class GitWorkspaceManager:
             raise RuntimeError(f"git worktree prune failed: {prune.stderr.strip()}")
 
     def remove_isolated(self, path: Path) -> None:
-        resolved = path.resolve()
-        if self.worktrees_root not in resolved.parents:
+        resolved = path.parent.resolve() / path.name
+        if resolved.parent.parent != self.worktrees_root:
             raise ValueError("refusing to remove an isolated workspace outside the product data directory")
 
         def make_writable_and_retry(function, target: str, _: object) -> None:
@@ -296,7 +297,10 @@ class GitWorkspaceManager:
             function(target)
 
         cleanup_errors: list[str] = []
-        for target in (resolved, self.isolated_git_dir(resolved)):
+        for target in (resolved, resolved.parent / "git-state"):
+            if target.is_symlink():
+                target.unlink()
+                continue
             if not target.exists():
                 continue
             last_error: OSError | None = None
@@ -316,17 +320,50 @@ class GitWorkspaceManager:
         if cleanup_errors:
             raise RuntimeError(f"isolated workspace cleanup failed: {'; '.join(cleanup_errors)}")
 
+        if resolved.parent != self.worktrees_root:
+            with suppress(FileNotFoundError):
+                if resolved.parent.is_dir() and not any(resolved.parent.iterdir()):
+                    resolved.parent.rmdir()
+
+    @staticmethod
+    def workspace_manifest(root: Path, *, linked: bool = False) -> dict[str, str]:
+        if not root.is_dir():
+            raise FileNotFoundError(root)
+        state = {}
+
+        def scan(directory: Path) -> None:
+            for entry in directory.iterdir():
+                if linked and directory == root and entry.name == ".git":
+                    continue
+                name = entry.relative_to(root).as_posix()
+                mode = entry.lstat().st_mode
+                if stat.S_ISLNK(mode):
+                    state[name] = f"symlink:{os.readlink(entry)}"
+                elif stat.S_ISDIR(mode):
+                    scan(entry)
+                elif stat.S_ISREG(mode):
+                    with entry.open("rb") as handle:
+                        digest = hashlib.file_digest(handle, "sha256").hexdigest()
+                    state[name] = f"{mode & 0o111:o}:{digest}"
+                else:
+                    raise ValueError(f"unsupported workspace file: {name}")
+
+        scan(root)
+        return state
+
     def changed_paths(self, workspace: Path, base_revision: str) -> list[str]:
-        result = self.run_isolated(workspace, ["diff", "--name-only", base_revision])
-        if result.exit_code != 0:
-            raise RuntimeError(f"git diff failed: {result.stderr.strip()}")
-        untracked = self.run_isolated(workspace, ["ls-files", "--others", "--exclude-standard"])
-        if untracked.exit_code != 0:
-            raise RuntimeError(f"git untracked-file scan failed: {untracked.stderr.strip()}")
-        paths = {
-            line.replace("\\", "/")
-            for output in (result.stdout, untracked.stdout)
-            for line in output.splitlines()
-            if line.strip()
-        }
+        paths = set()
+        for arguments in (
+            ["diff", "--no-renames", "--name-only", "-z", base_revision],
+            ["ls-files", "--others", "--exclude-standard", "-z"],
+        ):
+            result = subprocess.run(
+                ["git", *arguments],
+                cwd=workspace,
+                env=self.isolated_environment(workspace),
+                capture_output=True,
+                timeout=60,
+                check=True,
+            )
+            paths.update(os.fsdecode(item) for item in result.stdout.split(b"\0") if item)
         return sorted(paths)

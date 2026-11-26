@@ -12,6 +12,7 @@ from .auth import derive_agent_token, load_or_create_token
 from .codex_permissions import permission_profile_cli_args
 from .gitops import GitWorkspaceManager
 from .models import AttemptOrigin, BlueprintKind, RunStatus, utc_now
+from .process import run_command
 from .redaction import redact
 from .store import FactoryStore
 
@@ -227,23 +228,16 @@ class CodexRunner:
         )
         run.status = RunStatus.RUNNING
         self.store.save_run(run)
-        process: subprocess.Popen[str] | None = None
-        try:
-            process = subprocess.Popen(
-                command,
-                cwd=workspace,
-                env=environment,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                shell=False,
-                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
-            )
+        def attempted():
             run.agent_attempted = True
             run.attempt_origin = AttemptOrigin.CODEX_PROCESS
             run.model_executed = None
             self.store.save_run(run)
-            stdout, stderr = process.communicate(timeout=blueprint.payload.timeout_ms / 1_000)
+
+        try:
+            process = run_command(command, workspace, blueprint.payload.timeout_ms / 1_000,
+                                  env=environment, on_started=attempted)
+            stdout, stderr = process.stdout, process.stderr
             for line in stdout.splitlines():
                 if not line.strip():
                     continue
@@ -262,10 +256,8 @@ class CodexRunner:
             else:
                 run.status = RunStatus.AGENT_CRASH
                 run.error = f"Codex exited with code {process.returncode}."
-        except subprocess.TimeoutExpired:
-            assert process is not None
-            process.kill()
-            stdout, stderr = process.communicate()
+        except subprocess.TimeoutExpired as error:
+            stdout, stderr = error.stdout or "", error.stderr or ""
             run.codex_events.append(redact({"type": "timeout_output", "stdout": stdout, "stderr": stderr}))
             run.status = RunStatus.AGENT_TIMEOUT
             run.error = f"Codex exceeded the {blueprint.payload.timeout_ms} ms Case timeout."

@@ -142,7 +142,7 @@ def create_app(services: Services) -> FastAPI:
         return response
 
     @app.get("/api/meta")
-    async def meta() -> dict[str, Any]:
+    def meta() -> dict[str, Any]:
         docker = services.engine.availability() if isinstance(services.engine, DockerEngine) else None
         return {
             "product": "Workflow Environment Factory",
@@ -196,14 +196,14 @@ def create_app(services: Services) -> FastAPI:
         return {"blueprints": services.store.list_blueprints()}
 
     @app.post("/api/blueprints", status_code=201)
-    async def create_blueprint(body: BlueprintCreate) -> Any:
+    def create_blueprint(body: BlueprintCreate) -> Any:
         try:
             return services.factory.create_blueprint(body)
         except (KeyError, ValueError) as error:
             raise HTTPException(409, str(error)) from error
 
     @app.post("/api/blueprints/{blueprint_id}/generate", status_code=201)
-    async def generate_cases(blueprint_id: UUID) -> Any:
+    def generate_cases(blueprint_id: UUID) -> Any:
         try:
             cases = services.factory.generate_cases(blueprint_id)
             return {"cases": cases, "all_gates_passed": all(case.validation.objective_gate_passed for case in cases)}
@@ -211,7 +211,7 @@ def create_app(services: Services) -> FastAPI:
             raise HTTPException(409, str(error)) from error
 
     @app.get("/api/blueprints/{blueprint_id}/export")
-    async def export_task_pack(blueprint_id: UUID) -> Any:
+    def export_task_pack(blueprint_id: UUID) -> Any:
         blueprint = services.store.get_blueprint(blueprint_id)
         if blueprint is None:
             raise HTTPException(404, "blueprint not found")
@@ -279,10 +279,15 @@ def create_app(services: Services) -> FastAPI:
         return record
 
     @app.post("/api/protocol/imports", status_code=201)
-    async def import_protocol(body: ProtocolImport) -> Any:
+    def import_protocol(body: ProtocolImport) -> Any:
         try:
             services.protocol.validate(body.document)
             sanitized = redact(body.document)
+            if body.document["schema_version"] in {"agent.run.v1", "workflow.score.v1"}:
+                for field in ("input_tokens", "output_tokens", "cached_input_tokens"):
+                    usage = body.document["resource_usage"]
+                    if field in usage:
+                        sanitized["resource_usage"][field] = usage[field]
             services.protocol.validate(sanitized)
         except (ValueError, TypeError) as error:
             schema_version = body.document.get("schema_version")
@@ -311,7 +316,7 @@ def create_app(services: Services) -> FastAPI:
         return {"runs": services.store.list_runs()}
 
     @app.post("/api/cases/{case_id}/runs", status_code=201)
-    async def prepare_run(case_id: UUID) -> Any:
+    def prepare_run(case_id: UUID) -> Any:
         try:
             run = services.factory.prepare_run(case_id)
         except (KeyError, ValueError, RuntimeError) as error:
@@ -381,14 +386,14 @@ def create_app(services: Services) -> FastAPI:
         return {"accepted": True, "run_id": str(run_id)}
 
     @app.post("/api/runs/{run_id}/score")
-    async def score_run(run_id: UUID) -> Any:
+    def score_run(run_id: UUID) -> Any:
         try:
             return services.scorer.score(run_id)
         except (KeyError, ValueError, RuntimeError) as error:
             raise HTTPException(409, str(error)) from error
 
     @app.post("/api/runs/{run_id}/cleanup")
-    async def cleanup_run(run_id: UUID) -> dict[str, Any]:
+    def cleanup_run(run_id: UUID) -> dict[str, Any]:
         try:
             services.factory.cleanup_run(run_id)
             return {"cleaned": True, "run_id": str(run_id)}

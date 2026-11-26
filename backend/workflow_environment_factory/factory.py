@@ -44,12 +44,14 @@ class CaseFactory:
         git: GitWorkspaceManager,
         engine: ExecutionEngine,
         simulator: IssuePrSimulator | None = None,
+        port: int = 43121,
     ):
         self.store = store
         self.content_store = content_store
         self.protocol = protocol
         self.git = git
         self.engine = engine
+        self.port = port
         self.simulator = simulator or IssuePrSimulator()
 
     def create_blueprint(self, payload: BlueprintCreate) -> BlueprintRecord:
@@ -301,7 +303,7 @@ class CaseFactory:
             "provenance": provenance,
             "safety": {
                 "network": "allowlist" if payload.kind == BlueprintKind.ISSUE_PR else "disabled",
-                **({"network_allowlist": ["127.0.0.1:43121"]} if payload.kind == BlueprintKind.ISSUE_PR else {}),
+                **({"network_allowlist": [f"127.0.0.1:{self.port}"]} if payload.kind == BlueprintKind.ISSUE_PR else {}),
                 "writable_paths": payload.allowed_paths,
                 "denied_paths": [".git/config", ".env", "simulator-data", "validators"],
                 "secret_refs": [],
@@ -323,7 +325,7 @@ class CaseFactory:
             },
         }
         if payload.kind == BlueprintKind.ISSUE_PR:
-            document["environment"]["start_urls"] = ["http://127.0.0.1:43121/simulator"]
+            document["environment"]["start_urls"] = [f"http://127.0.0.1:{self.port}/simulator"]
         return document
 
     def _validate_case(self, blueprint: BlueprintRecord, case_id: UUID, index: int, value: str) -> CaseValidation:
@@ -489,21 +491,7 @@ class CaseFactory:
                 raise RuntimeError(f"simulator gate cleanup failed: {'; '.join(cleanup_errors)}")
 
     def _workspace_state_digest(self, workspace: Path) -> str:
-        diff = self.git.run(workspace, ["diff", "--binary", "HEAD"])
-        if diff.exit_code != 0:
-            raise RuntimeError(f"could not fingerprint reset state: {diff.stderr.strip()}")
-        untracked = self.git.run(workspace, ["ls-files", "--others", "--exclude-standard"])
-        if untracked.exit_code != 0:
-            raise RuntimeError(f"could not list reset state: {untracked.stderr.strip()}")
-        hasher = hashlib.sha256()
-        hasher.update(diff.stdout.encode("utf-8"))
-        for relative in sorted(line for line in untracked.stdout.splitlines() if line):
-            target = (workspace / relative).resolve()
-            if workspace.resolve() not in target.parents or not target.is_file():
-                raise ValueError("untracked reset artifact escaped the workspace")
-            hasher.update(relative.encode("utf-8"))
-            hasher.update(target.read_bytes())
-        return f"sha256:{hasher.hexdigest()}"
+        return _sha256_json(self.git.workspace_manifest(workspace, linked=True))
 
     def prepare_run(self, case_id: UUID | str) -> RunRecord:
         case = self.store.get_case(case_id)
@@ -528,6 +516,7 @@ class CaseFactory:
                 blueprint.payload.variable.paths,
             )
             run.workspace_path = str(workspace)
+            run.baseline_manifest_ref = self.content_store.put_json(self.git.workspace_manifest(workspace))
             if blueprint.payload.kind == BlueprintKind.ISSUE_PR:
                 assert blueprint.payload.issue is not None
                 database_path = self.git.worktrees_root.parent / "simulators" / str(run.run_id) / "simulator.sqlite3"
@@ -560,7 +549,7 @@ class CaseFactory:
             return self.store.save_run(run)
 
     def cleanup_run(self, run_id: UUID | str) -> None:
-        run = self.store.get_run(run_id)
+        run = self.store.claim_cleanup(run_id)
         if run is None:
             return
         case = self.store.get_case(run.case_id)

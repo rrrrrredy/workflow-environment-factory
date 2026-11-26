@@ -320,12 +320,12 @@ export function RunsPage({ cases, runs, onChanged, onError }: Props) {
                 ) : null}
 
                 <div className="run-actions">
-                  {detail.run.status === "ready" ? (
+                  {detail.run.status === "ready" && !detail.run.workspace_cleaned ? (
                     <Button busy={busy === "execute"} onClick={() => void execute()}>
                       <Bot size={16} /> Execute with Codex
                     </Button>
                   ) : null}
-                  {detail.run.status === "completed" && detail.run.attempt_origin === "codex_process" && !detail.score ? (
+                  {!detail.run.workspace_cleaned && detail.run.status === "completed" && detail.run.attempt_origin === "codex_process" && !detail.score ? (
                     <Button
                       tone="secondary"
                       busy={busy === "score"}
@@ -338,7 +338,7 @@ export function RunsPage({ cases, runs, onChanged, onError }: Props) {
                       <Sparkles size={16} /> Validate completed attempt
                     </Button>
                   ) : null}
-                  {!activeStatuses.has(detail.run.status) ? (
+                  {!detail.run.workspace_cleaned && !activeStatuses.has(detail.run.status) ? (
                     <Button
                       tone="quiet"
                       busy={busy === "cleanup"}

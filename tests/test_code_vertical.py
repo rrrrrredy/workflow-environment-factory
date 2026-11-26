@@ -99,6 +99,26 @@ def test_code_factory_generates_only_gated_cases_and_scores_objectively(services
     }
     assert passing_score["nondeterminism"]["single_run_evidence"] is True
     services.protocol.validate(passing_score)
+    from copy import deepcopy
+
+    from fastapi.testclient import TestClient
+    from workflow_environment_factory.app import create_app
+
+    with TestClient(create_app(services)) as client:
+        headers = {"authorization": "Bearer " + services.settings.token_path.read_text().strip()}
+        document = deepcopy(cases[2].protocol_case)
+        assert client.post("/api/protocol/imports", headers=headers, json={"document": document}).status_code == 201
+        document["variables"][0].update(value_type="number", value=True)
+        assert client.post("/api/protocol/imports", headers=headers, json={"document": document}).status_code == 422
+        document = deepcopy(passing_score)
+        assert client.post("/api/protocol/imports", headers=headers, json={"document": document}).status_code == 201
+        document["validations"][0]["status"] = "fail"
+        assert client.post("/api/protocol/imports", headers=headers, json={"document": document}).status_code == 422
+        document["execution"].update(status="validator_error", failure_stage="validating")
+        document["task_result"]["status"] = "not_scored"
+        assert client.post("/api/protocol/imports", headers=headers, json={"document": document}).status_code == 422
+        del document["task_result"]["score"]
+        assert client.post("/api/protocol/imports", headers=headers, json={"document": document}).status_code == 201
     services.factory.cleanup_run(passing_run.run_id)
 
     crashed_run = services.factory.prepare_run(cases[0].case_id)

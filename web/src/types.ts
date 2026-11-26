@@ -147,6 +147,7 @@ export interface RunRecord {
   case_id: string;
   status: RunStatus;
   workspace_path: string;
+  workspace_cleaned?: boolean;
   simulator_database_path: string | null;
   agent_attempted: boolean;
   attempt_origin: "none" | "codex_process" | "synthetic_fixture";

@@ -85,9 +85,7 @@ class FactoryStore:
             );
             """
         )
-        historical_runs = self.connection.execute(
-            "SELECT DISTINCT run_id FROM scores ORDER BY run_id"
-        ).fetchall()
+        historical_runs = self.connection.execute("SELECT DISTINCT run_id FROM scores ORDER BY run_id").fetchall()
         for historical in historical_runs:
             score = self.connection.execute(
                 "SELECT id FROM scores WHERE run_id = ? ORDER BY created_at ASC, id ASC LIMIT 1",
@@ -139,6 +137,11 @@ class FactoryStore:
     def save_cases(self, cases: Iterable[CaseRecord]) -> list[CaseRecord]:
         values = list(cases)
         with self.connection:
+            self.connection.execute("BEGIN IMMEDIATE")
+            if values:
+                existing = self.list_cases(values[0].blueprint_id)
+                if existing:
+                    return existing
             for record in values:
                 self.connection.execute(
                     "INSERT INTO cases(id, blueprint_id, variant_index, payload_json, created_at) "
@@ -193,7 +196,7 @@ class FactoryStore:
         return [RunRecord.model_validate_json(row["payload_json"]) for row in rows]
 
     @_serialized
-    def save_score(self, score: dict[str, Any]) -> dict[str, Any]:
+    def save_score(self, score: dict[str, Any], run: RunRecord | None = None) -> dict[str, Any]:
         self.connection.execute("BEGIN IMMEDIATE")
         try:
             row = self.connection.execute(
@@ -212,6 +215,11 @@ class FactoryStore:
                 "INSERT INTO score_heads(run_id, score_id) VALUES (?, ?)",
                 (score["run_id"], score["score_id"]),
             )
+            if run is not None:
+                run.validation_previous_status = None
+                self.connection.execute(
+                    "UPDATE runs SET payload_json = ? WHERE id = ?", (self._json(run), str(run.run_id))
+                )
             self.connection.commit()
             return score
         except Exception:
@@ -293,13 +301,11 @@ class FactoryStore:
 
     @_serialized
     def claim_ready_run(self, run_id: UUID | str) -> RunRecord | None:
-        row = self.connection.execute(
-            "SELECT payload_json FROM runs WHERE id = ?", (str(run_id),)
-        ).fetchone()
+        row = self.connection.execute("SELECT payload_json FROM runs WHERE id = ?", (str(run_id),)).fetchone()
         if row is None:
             return None
         run = RunRecord.model_validate_json(row["payload_json"])
-        if run.status != RunStatus.READY:
+        if run.status != RunStatus.READY or run.workspace_cleaned:
             return None
         previous_payload = row["payload_json"]
         run.status = RunStatus.QUEUED
@@ -311,10 +317,49 @@ class FactoryStore:
         return run if cursor.rowcount == 1 else None
 
     @_serialized
+    def claim_cleanup(self, run_id: UUID | str) -> RunRecord | None:
+        with self.connection:
+            self.connection.execute("BEGIN IMMEDIATE")
+            run = self.get_run(run_id)
+            if run is None:
+                return None
+            if run.status in {RunStatus.PREPARING, RunStatus.QUEUED, RunStatus.RUNNING, RunStatus.VALIDATING}:
+                raise ValueError("cannot clean an active Run")
+            run.workspace_cleaned = True
+            self.connection.execute("UPDATE runs SET payload_json = ? WHERE id = ?", (self._json(run), str(run_id)))
+            return run
+
+    @_serialized
+    def claim_scoring(self, run_id: UUID | str) -> tuple[RunRecord | None, dict[str, Any] | None]:
+        with self.connection:
+            self.connection.execute("BEGIN IMMEDIATE")
+            existing = self.get_score_for_run(run_id)
+            if existing is not None:
+                return None, existing
+            run = self.get_run(run_id)
+            if run is None:
+                raise KeyError("run not found")
+            if run.status == RunStatus.VALIDATING:
+                return None, None
+            if run.workspace_cleaned or run.status not in {
+                RunStatus.COMPLETED,
+                RunStatus.AGENT_CRASH,
+                RunStatus.AGENT_TIMEOUT,
+            }:
+                raise ValueError(f"run cannot be scored from status {run.status}")
+            claimed = run.model_copy(update={"status": RunStatus.VALIDATING, "validation_previous_status": run.status})
+            self.connection.execute("UPDATE runs SET payload_json = ? WHERE id = ?", (self._json(claimed), str(run_id)))
+            return run, None
+
+    @_serialized
     def recover_interrupted_runs(self) -> list[RunRecord]:
         recovered: list[RunRecord] = []
         for run in self.list_runs():
-            if run.status.value in {"preparing", "queued", "running", "validating"}:
+            if run.status == RunStatus.VALIDATING and run.validation_previous_status:
+                run.status = run.validation_previous_status
+                run.validation_previous_status = None
+                recovered.append(self.save_run(run))
+            elif run.status.value in {"preparing", "queued", "running", "validating"}:
                 run.status = RunStatus.ENVIRONMENT_ERROR
                 run.error = "The factory restarted before this Run reached a terminal state."
                 recovered.append(self.save_run(run))

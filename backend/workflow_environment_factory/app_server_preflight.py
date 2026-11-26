@@ -74,15 +74,6 @@ class CodexWorkspacePreflight:
         sentinel = root / f".workflow-environment-preflight-{uuid4().hex}"
         patch = root / f".workflow-environment-preflight-patch-{uuid4().hex}"
         relative_sentinel = sentinel.name
-        patch.write_text(
-            f"diff --git a/{relative_sentinel} b/{relative_sentinel}\n"
-            "new file mode 100644\n"
-            "--- /dev/null\n"
-            f"+++ b/{relative_sentinel}\n"
-            "@@ -0,0 +1 @@\n"
-            "+write-ok\n",
-            encoding="utf-8",
-        )
         git_dir = Path(environment["GIT_DIR"]).resolve(strict=True)
         process = subprocess.Popen(
             [
@@ -114,6 +105,15 @@ class CodexWorkspacePreflight:
         threading.Thread(target=self._read_stderr, args=(process.stderr, stderr_chunks), daemon=True).start()
         primary_error: BaseException | None = None
         try:
+            patch.write_text(
+                f"diff --git a/{relative_sentinel} b/{relative_sentinel}\n"
+                "new file mode 100644\n"
+                "--- /dev/null\n"
+                f"+++ b/{relative_sentinel}\n"
+                "@@ -0,0 +1 @@\n"
+                "+write-ok\n",
+                encoding="utf-8",
+            )
             self._request(
                 process,
                 lines,

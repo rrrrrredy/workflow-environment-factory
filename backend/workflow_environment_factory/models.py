@@ -20,6 +20,17 @@ class BlueprintKind(StrEnum):
 
 class CommandSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    asset_paths: list[str] = Field(default_factory=list, max_length=100)
+
+    @field_validator("asset_paths")
+    @classmethod
+    def validate_assets(cls, paths: list[str]) -> list[str]:
+        for name in paths:
+            path = PurePosixPath(name.replace("\\", "/"))
+            if not path.parts or path.is_absolute() or ".." in path.parts or ":" in name:
+                raise ValueError("verifier assets must be repository-relative paths")
+        return paths
+
     argv: list[str] = Field(min_length=1, max_length=100)
     timeout_ms: int = Field(default=120_000, ge=1_000, le=900_000)
 
@@ -173,6 +184,9 @@ class RunRecord(BaseModel):
     case_id: UUID
     status: RunStatus
     workspace_path: str
+    baseline_manifest_ref: str | None = None
+    workspace_cleaned: bool = False
+    validation_previous_status: RunStatus | None = None
     simulator_database_path: str | None = None
     agent_attempted: bool = False
     attempt_origin: AttemptOrigin = AttemptOrigin.NONE

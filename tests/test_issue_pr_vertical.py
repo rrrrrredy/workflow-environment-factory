@@ -62,9 +62,12 @@ def test_recorded_issue_pr_case_requires_code_and_database_state(services, repos
     assert extraction["candidate_variables"]["target_status"] == "in_review"
     assert extraction["candidate_variables"]["pr_target"] == "main"
 
+    services.factory.port = 43876
     blueprint = services.factory.create_blueprint(issue_blueprint(repository_fixture, recording.recording_id))
     cases = services.factory.generate_cases(blueprint.blueprint_id)
     assert len(cases) == 3
+    assert cases[0].protocol_case["environment"]["start_urls"] == ["http://127.0.0.1:43876/simulator"]
+    assert cases[0].protocol_case["safety"]["network_allowlist"] == ["127.0.0.1:43876"]
     assert all(case.validation.objective_gate_passed for case in cases)
     assert all("programmatic correct Issue/PR state passed" in case.validation.details for case in cases)
     assert cases[0].protocol_case["provenance"]["kind"] == "recorded_workflow"

@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> None:
     print(f"Workflow Environment Factory: http://{settings.host}:{settings.port}/session/{token}")
     print(f"Local data: {settings.data_dir}")
     if recovered:
-        print(f"Recovered {len(recovered)} interrupted Run(s) as environment errors.")
+        print(f"Recovered {len(recovered)} interrupted Run(s).")
     try:
         uvicorn.run(
             create_app(services),
