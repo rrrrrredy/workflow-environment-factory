@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 
 class ContentStore:
@@ -17,9 +18,12 @@ class ContentStore:
         path = self.root / digest[:2] / digest[2:]
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
-            temporary = path.with_suffix(f".{id(value)}.tmp")
-            temporary.write_bytes(value)
-            temporary.replace(path)
+            temporary = path.with_suffix(f".{uuid4().hex}.tmp")
+            try:
+                temporary.write_bytes(value)
+                temporary.replace(path)
+            finally:
+                temporary.unlink(missing_ok=True)
         return reference
 
     def put_text(self, value: str) -> str:

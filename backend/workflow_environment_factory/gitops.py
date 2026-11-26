@@ -160,6 +160,7 @@ class GitWorkspaceManager:
             [
                 "-c",
                 f"core.hooksPath={self.worktrees_root / '.disabled-hooks'}",
+                "-c", "core.autocrlf=false",
                 "worktree",
                 "add",
                 "--detach",

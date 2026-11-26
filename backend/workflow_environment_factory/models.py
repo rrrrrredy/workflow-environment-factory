@@ -139,6 +139,7 @@ class BlueprintRecord(BaseModel):
 
 class CaseValidation(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    baseline_manifest_ref: str | None = None
     baseline_status: Literal["pass", "fail", "error", "timeout"]
     solution_status: Literal["pass", "fail", "error", "timeout"]
     baseline_exit_code: int | None

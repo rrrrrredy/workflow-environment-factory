@@ -102,6 +102,13 @@ def test_cleanup_revokes_ready_run_and_preserves_neighbor(services, repository_f
     services.factory.cleanup_run(first.run_id)
     assert not workspace.parent.exists()
     assert Path(second.workspace_path).exists()
+    neighbor = Path(second.workspace_path).parent / "other-data"
+    neighbor.touch()
+    third = services.factory.prepare_run(case.case_id)
+    keeper = Path(third.workspace_path).parent / "other-data"
+    keeper.touch()
+    services.factory.cleanup_run(third.run_id)
+    assert keeper.exists() and neighbor.exists()
     assert services.store.claim_ready_run(first.run_id) is None
     assert services.store.claim_ready_run(second.run_id) is not None
     with pytest.raises(ValueError, match="active"):
@@ -189,3 +196,23 @@ def test_git_reports_original_unicode_paths_and_both_rename_endpoints(services, 
     old.rename(new)
     assert services.git.run_isolated(workspace, ["add", "-A"]).exit_code == 0
     assert set(services.git.changed_paths(workspace, "HEAD")) == {"app.py", new.name}
+
+
+def test_prepare_matches_the_case_gate_before_releasing_workspace(services, repository_fixture, monkeypatch):
+    case = _case(services, repository_fixture)
+    baseline = case.validation.baseline_manifest_ref
+    assert baseline
+    run = services.factory.prepare_run(case.case_id)
+    assert run.status == RunStatus.READY and run.baseline_manifest_ref == baseline
+    materialize = services.git.materialize_isolated
+
+    def inconsistent_checkout(*args):
+        workspace, count = materialize(*args)
+        (workspace / "verify.py").write_text("# alternate checkout\n", encoding="utf-8")
+        return workspace, count
+
+    monkeypatch.setattr(services.git, "materialize_isolated", inconsistent_checkout)
+    rejected = services.factory.prepare_run(case.case_id)
+    assert rejected.status == RunStatus.RESET_ERROR
+    assert not Path(rejected.workspace_path).exists()
+    assert services.store.claim_ready_run(rejected.run_id) is None

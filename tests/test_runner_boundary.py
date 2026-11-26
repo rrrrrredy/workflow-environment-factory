@@ -91,6 +91,14 @@ def test_no_model_app_server_preflight_writes_and_removes_bounded_sentinel(tmp_p
         mcp_script=mcp_script,
     )
     assert list(workspace.glob(".workflow-environment-preflight-*")) == []
+    import pytest
+
+    with pytest.raises(OSError):
+        CodexWorkspacePreflight(str(tmp_path / "missing-binary")).check(
+            workspace, environment, database_path=database, repository_root=source,
+            solution_commit=solution, mcp_script=mcp_script,
+        )
+    assert list(workspace.glob(".workflow-environment-preflight-*")) == []
 
 
 def test_codex_command_overrides_network_writable_roots_and_shell_environment(tmp_path: Path) -> None:

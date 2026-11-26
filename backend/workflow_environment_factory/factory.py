@@ -337,6 +337,7 @@ class CaseFactory:
         baseline_result = ProcessResult("error", None, "", "not run", 0)
         solution_result = ProcessResult("error", None, "", "not run", 0)
         reset_verified = False
+        baseline_ref = None
         issue_state_verified = blueprint.payload.kind != BlueprintKind.ISSUE_PR
         gate_error = ""
         cleanup_errors: list[str] = []
@@ -362,8 +363,8 @@ class CaseFactory:
                 value,
                 payload.variable.paths,
             )
-            second_digest = self._workspace_state_digest(reset_path)
-            reset_verified = first_digest == second_digest
+            baseline_ref = self._workspace_state_digest(reset_path)
+            reset_verified = first_digest == baseline_ref
             baseline_result = self.engine.run(
                 reset_path,
                 payload.container_image,
@@ -412,6 +413,7 @@ class CaseFactory:
         if payload.kind == BlueprintKind.ISSUE_PR:
             success_details += " Fresh simulator baseline failed and the programmatic correct Issue/PR state passed."
         return CaseValidation(
+            baseline_manifest_ref=baseline_ref,
             baseline_status=baseline_result.status,  # type: ignore[arg-type]
             solution_status=solution_result.status,  # type: ignore[arg-type]
             baseline_exit_code=baseline_result.exit_code,
@@ -491,7 +493,7 @@ class CaseFactory:
                 raise RuntimeError(f"simulator gate cleanup failed: {'; '.join(cleanup_errors)}")
 
     def _workspace_state_digest(self, workspace: Path) -> str:
-        return _sha256_json(self.git.workspace_manifest(workspace, linked=True))
+        return self.content_store.put_json(self.git.workspace_manifest(workspace, linked=True))
 
     def prepare_run(self, case_id: UUID | str) -> RunRecord:
         case = self.store.get_case(case_id)
@@ -517,6 +519,9 @@ class CaseFactory:
             )
             run.workspace_path = str(workspace)
             run.baseline_manifest_ref = self.content_store.put_json(self.git.workspace_manifest(workspace))
+            expected = case.validation.baseline_manifest_ref
+            if expected is not None and expected != run.baseline_manifest_ref:
+                raise ValueError("prepared workspace differs from the confirmed Case baseline")
             if blueprint.payload.kind == BlueprintKind.ISSUE_PR:
                 assert blueprint.payload.issue is not None
                 database_path = self.git.worktrees_root.parent / "simulators" / str(run.run_id) / "simulator.sqlite3"
