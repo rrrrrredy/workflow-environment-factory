@@ -121,7 +121,7 @@ jobs:
             platform: linux
             skip_docker: '0'
             read_isolation_args: '--allow-known-linux-sandbox-unsupported'
-          - os: macos-14
+          - os: macos-15
             platform: macos
             skip_docker: '1'
             read_isolation_args: ''
