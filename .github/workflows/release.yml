@@ -98,7 +98,7 @@ jobs:
       - name: Install pinned Codex CLI for archive lifecycle acceptance
         shell: pwsh
         run: npm install --global @openai/codex@0.151.0
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: factory-release-candidate
           path: ${{ runner.temp }}\factory-release
@@ -180,7 +180,7 @@ jobs:
           python-version: '3.13.13'
       - name: Install pinned Codex CLI
         run: npm install --global @openai/codex@0.151.0
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: factory-release-candidate
           path: ${{ runner.temp }}/candidate
@@ -224,19 +224,19 @@ jobs:
         with:
           path: product
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: factory-release-candidate
           path: artifacts
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: factory-installation-evidence
           path: artifacts
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: factory-linux-archive-evidence
           path: artifacts
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: factory-macos-archive-evidence
           path: artifacts
